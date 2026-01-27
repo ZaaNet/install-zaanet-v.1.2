@@ -250,20 +250,9 @@ while true; do
         continue
     fi
     
-    # Validate format (should be numeric) - POSIX compatible
-    # Remove all digits and check if anything remains
-    CONTRACT_ID_CLEAN=$(echo "$CONTRACT_ID" | tr -d '0-9')
-    if [ -z "$CONTRACT_ID_CLEAN" ]; then
-        print_success "Valid contract ID format"
-        break
-    else
-        print_warning "Invalid format. Expected: numeric value (numbers only)"
-        echo -n "Use anyway? (y/n): "
-        read confirm
-        if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-            break
-        fi
-    fi
+    # Contract ID accepted (no format validation)
+    print_success "Contract ID accepted"
+    break
 done
 
 echo ""
@@ -422,29 +411,41 @@ print_header "Step 12: Injecting Configuration"
 
 print_info "Replacing configuration placeholders in files..."
 
-# Define all placeholders and their replacements
-declare -A REPLACEMENTS=(
-    ["ROUTER_ID_PLACEHOLDER"]="$ROUTER_ID"
-    ["CONTRACT_ID_PLACEHOLDER"]="$CONTRACT_ID"
-    ["MAIN_SERVER_PLACEHOLDER"]="$MAIN_SERVER"
-    ["WIFI_SSID_PLACEHOLDER"]="$WIFI_SSID"
-    ["\$routerid"]="$ROUTER_ID"
-    ["https://api.zaanet.xyz"]="$MAIN_SERVER"
-)
-
 # Replace in all deployed files
 for file in /etc/nodogsplash/htdocs/*.html /etc/nodogsplash/htdocs/*.js /etc/nodogsplash/htdocs/*.css; do
     if [ -f "$file" ]; then
         filename=$(basename "$file")
         
-        for placeholder in "${!REPLACEMENTS[@]}"; do
-            replacement="${REPLACEMENTS[$placeholder]}"
-            # Escape special characters for sed
-            escaped_placeholder=$(echo "$placeholder" | sed 's/[\/&]/\\&/g')
-            escaped_replacement=$(echo "$replacement" | sed 's/[\/&]/\\&/g')
-            
-            sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
-        done
+        # Replace each placeholder (POSIX-compatible, no associative arrays)
+        # ROUTER_ID_PLACEHOLDER
+        escaped_placeholder=$(echo "ROUTER_ID_PLACEHOLDER" | sed 's/[\/&]/\\&/g')
+        escaped_replacement=$(echo "$ROUTER_ID" | sed 's/[\/&]/\\&/g')
+        sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
+        
+        # CONTRACT_ID_PLACEHOLDER
+        escaped_placeholder=$(echo "CONTRACT_ID_PLACEHOLDER" | sed 's/[\/&]/\\&/g')
+        escaped_replacement=$(echo "$CONTRACT_ID" | sed 's/[\/&]/\\&/g')
+        sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
+        
+        # MAIN_SERVER_PLACEHOLDER
+        escaped_placeholder=$(echo "MAIN_SERVER_PLACEHOLDER" | sed 's/[\/&]/\\&/g')
+        escaped_replacement=$(echo "$MAIN_SERVER" | sed 's/[\/&]/\\&/g')
+        sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
+        
+        # WIFI_SSID_PLACEHOLDER
+        escaped_placeholder=$(echo "WIFI_SSID_PLACEHOLDER" | sed 's/[\/&]/\\&/g')
+        escaped_replacement=$(echo "$WIFI_SSID" | sed 's/[\/&]/\\&/g')
+        sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
+        
+        # $routerid (nodogsplash variable)
+        escaped_placeholder=$(echo '\$routerid' | sed 's/[\/&]/\\&/g')
+        escaped_replacement=$(echo "$ROUTER_ID" | sed 's/[\/&]/\\&/g')
+        sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
+        
+        # https://api.zaanet.xyz (hardcoded URL replacement)
+        escaped_placeholder=$(echo "https://api.zaanet.xyz" | sed 's/[\/&]/\\&/g')
+        escaped_replacement=$(echo "$MAIN_SERVER" | sed 's/[\/&]/\\&/g')
+        sed -i "s/${escaped_placeholder}/${escaped_replacement}/g" "$file" 2>/dev/null || true
         
         print_success "Updated: $filename"
     fi
