@@ -316,6 +316,90 @@ if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
     exit 1
 fi
 
+# Step 8.5: Identify Admin Device
+print_header "Step 8.5: Admin Device Whitelisting"
+
+echo "Do you want to whitelist this device (admin access)?"
+echo "Whitelisted devices bypass captive portal and access admin panel directly."
+echo ""
+
+# Try to detect the device making the SSH connection
+ADMIN_MAC=""
+ADMIN_IP=""
+
+# Get SSH client IP from SSH_CONNECTION environment variable
+if [ -n "$SSH_CONNECTION" ]; then
+    ADMIN_IP=$(echo $SSH_CONNECTION | awk '{print $1}')
+    print_info "Detected SSH connection from: $ADMIN_IP"
+    
+    # Try to find MAC address from ARP table
+    ADMIN_MAC=$(arp -a | grep "$ADMIN_IP" | awk '{print $4}' | head -1)
+    
+    if [ -n "$ADMIN_MAC" ] && [ "$ADMIN_MAC" != "00:00:00:00:00:00" ]; then
+        print_success "Detected device MAC: $ADMIN_MAC"
+        echo ""
+        echo "Device Information:"
+        echo "  IP Address: $ADMIN_IP"
+        echo "  MAC Address: $ADMIN_MAC"
+        echo ""
+        echo -n "Whitelist this device? (y/n): "
+        read whitelist_confirm
+        
+        if [ "$whitelist_confirm" = "y" ] || [ "$whitelist_confirm" = "Y" ]; then
+            print_success "Admin device will be whitelisted"
+        else
+            ADMIN_MAC=""
+            print_info "Admin device will NOT be whitelisted"
+        fi
+    else
+        print_warning "Could not detect MAC address automatically"
+        echo ""
+        echo -n "Enter MAC address manually? (y/n): "
+        read manual_mac
+        
+        if [ "$manual_mac" = "y" ] || [ "$manual_mac" = "Y" ]; then
+            echo -n "Enter MAC address (format: AA:BB:CC:DD:EE:FF): "
+            read ADMIN_MAC
+            
+            # Basic MAC validation
+            if echo "$ADMIN_MAC" | grep -qE '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'; then
+                print_success "MAC address accepted: $ADMIN_MAC"
+            else
+                print_warning "Invalid MAC format, skipping whitelisting"
+                ADMIN_MAC=""
+            fi
+        else
+            print_info "Skipping admin device whitelisting"
+        fi
+    fi
+else
+    print_warning "SSH connection info not available"
+    echo ""
+    echo "You can whitelist a device by entering its MAC address."
+    echo -n "Whitelist a device? (y/n): "
+    read whitelist_device
+    
+    if [ "$whitelist_device" = "y" ] || [ "$whitelist_device" = "Y" ]; then
+        # Show connected devices to help user choose
+        echo ""
+        echo "Currently connected devices:"
+        arp -a | grep -v "incomplete" | awk '{print "  " $2 " - " $4}'
+        echo ""
+        
+        echo -n "Enter MAC address to whitelist: "
+        read ADMIN_MAC
+        
+        if echo "$ADMIN_MAC" | grep -qE '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'; then
+            print_success "MAC address accepted: $ADMIN_MAC"
+        else
+            print_warning "Invalid MAC format, skipping whitelisting"
+            ADMIN_MAC=""
+        fi
+    fi
+fi
+
+echo ""
+
 # Step 9: Create directory structure
 print_header "Step 9: Creating Directory Structure"
 
@@ -508,9 +592,12 @@ uci set nodogsplash.@nodogsplash[0].checkinterval='60'
 # Clear existing firewall rules
 uci -q delete nodogsplash.@nodogsplash[0].preauthenticated_users
 uci -q delete nodogsplash.@nodogsplash[0].users_to_router
+uci -q delete nodogsplash.@nodogsplash[0].trustedmac
 
 # Add firewall rules for pre-authenticated users (before login)
 print_info "Configuring pre-authentication firewall rules..."
+uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow tcp port 53'  # DNS
+uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 53'  # DNS
 uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 67'  # DHCP
 uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 68'  # DHCP
 
@@ -523,9 +610,20 @@ uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 53'   #
 uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53'   # DNS
 uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67'   # DHCP
 
+# Add admin device to trusted MAC list if provided
+if [ -n "$ADMIN_MAC" ]; then
+    print_info "Adding admin device to trusted list..."
+    uci add_list nodogsplash.@nodogsplash[0].trustedmac="$ADMIN_MAC"
+    print_success "Admin device whitelisted: $ADMIN_MAC"
+    print_info "This device will bypass captive portal"
+fi
+
 uci commit nodogsplash
 print_success "Nodogsplash configured"
 print_success "Router admin panel will be accessible at: http://192.168.8.1"
+if [ -n "$ADMIN_MAC" ]; then
+    print_success "Admin device ($ADMIN_MAC) has full access"
+fi
 
 # Step 14: Configure WiFi
 print_header "Step 14: Configuring WiFi Network"
@@ -627,7 +725,7 @@ ZaaNet Installation Log
 =======================
 
 Installation Date: $(date)
-Script Version: 1.3 (GitHub Download with Router Access)
+Script Version: 1.4 (GitHub Download with Admin Whitelisting)
 
 GitHub Repository:
 ------------------
@@ -641,6 +739,7 @@ Router ID: $ROUTER_ID
 Contract ID: $CONTRACT_ID
 Main Server: $MAIN_SERVER
 WiFi SSID: $WIFI_SSID
+$([ -n "$ADMIN_MAC" ] && echo "Admin Device: $ADMIN_MAC (whitelisted)")
 
 System Information:
 -------------------
@@ -653,6 +752,7 @@ Features Enabled:
 - Router admin panel access (HTTP/HTTPS)
 - SSH access
 - Network info caching: $([ -f /etc/nodogsplash/htdocs/network-info.json ] && echo "Yes" || echo "No")
+- Admin device whitelisting: $([ -n "$ADMIN_MAC" ] && echo "Yes ($ADMIN_MAC)" || echo "No")
 
 Deployed Files:
 ---------------
@@ -663,6 +763,7 @@ Status:
 Installation completed successfully.
 Nodogsplash service: running
 Router admin accessible: http://192.168.8.1
+$([ -n "$ADMIN_MAC" ] && echo "Whitelisted devices: $ADMIN_MAC")
 EOF
 
 print_success "Installation log saved"
@@ -687,12 +788,29 @@ echo "--------------"
 echo "Contract ID: $CONTRACT_ID"
 echo "Main Server: $MAIN_SERVER"
 echo "Config File: /etc/zaanet/config"
+if [ -n "$ADMIN_MAC" ]; then
+    echo "Admin Device: $ADMIN_MAC (whitelisted)"
+fi
 echo ""
 echo "ROUTER ACCESS:"
 echo "--------------"
 echo "Admin Panel: http://192.168.8.1"
 echo "SSH Access:  ssh root@192.168.8.1"
-echo "Note: Accessible even with captive portal active"
+if [ -n "$ADMIN_MAC" ]; then
+    echo ""
+    echo "WHITELISTED ADMIN DEVICE:"
+    echo "-------------------------"
+    echo "MAC Address: $ADMIN_MAC"
+    echo "This device has:"
+    echo "  ✓ Direct internet access (no captive portal)"
+    echo "  ✓ Full admin panel access"
+    echo "  ✓ SSH access"
+    echo ""
+    echo "To add more admin devices later:"
+    echo "  uci add_list nodogsplash.@nodogsplash[0].trustedmac='MAC:ADDRESS'"
+    echo "  uci commit nodogsplash"
+    echo "  /etc/init.d/nodogsplash restart"
+fi
 echo ""
 echo "DEPLOYED FILES:"
 echo "---------------"
@@ -709,16 +827,29 @@ echo ""
 echo "TESTING THE CAPTIVE PORTAL:"
 echo "---------------------------"
 echo "1. Connect a device to the WiFi network: $WIFI_SSID"
+if [ -n "$ADMIN_MAC" ]; then
+    echo "   (Your admin device will connect directly without captive portal)"
+fi
 echo "2. Open a web browser"
 echo "3. Try to visit any website"
 echo "4. You should see the ZaaNet splash page"
 echo "5. Enter a voucher code to authenticate"
 echo ""
-echo "ADMIN ACCESS (No Authentication Required):"
-echo "-------------------------------------------"
-echo "From a connected device:"
-echo "  - Access router: http://192.168.8.1"
-echo "  - SSH access: ssh root@192.168.8.1"
+echo "ADMIN ACCESS:"
+echo "-------------"
+if [ -n "$ADMIN_MAC" ]; then
+    echo "Your device ($ADMIN_MAC):"
+    echo "  - Access router directly: http://192.168.8.1"
+    echo "  - No captive portal interference"
+    echo "  - Full internet access"
+else
+    echo "No admin device whitelisted."
+    echo "To access admin panel:"
+    echo "  - Option 1: Use SSH: ssh root@192.168.8.1"
+    echo "  - Option 2: Whitelist your device:"
+    echo "    uci add_list nodogsplash.@nodogsplash[0].trustedmac='YOUR:MAC:ADDRESS'"
+    echo "    uci commit nodogsplash && /etc/init.d/nodogsplash restart"
+fi
 echo ""
 echo "NEXT STEPS:"
 echo "-----------"
@@ -732,6 +863,9 @@ echo "3. Monitor the router status:"
 echo "   - View logs: logread | grep nodogsplash"
 echo "   - Check status: /etc/init.d/nodogsplash status"
 echo "   - View clients: ndsctl clients"
+if [ -n "$ADMIN_MAC" ]; then
+    echo "   - View trusted MACs: uci show nodogsplash | grep trustedmac"
+fi
 echo ""
 echo "SUPPORT:"
 echo "--------"
