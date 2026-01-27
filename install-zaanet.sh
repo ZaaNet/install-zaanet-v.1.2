@@ -1,6 +1,6 @@
 #!/bin/bash
 # ZaaNet Router Installation Script
-# Version: 1.2 - GitHub Download
+# Version: 1.3 - GitHub Download with Router Access & Network Info
 # Platform: GL.iNet GL-XE300 with OpenWrt 22.03.4
 
 set -e  # Exit on any error
@@ -62,11 +62,12 @@ fi
 
 # Welcome message
 clear
-print_header "ZaaNet Router Installation Script v1.2"
+print_header "ZaaNet Router Installation Script v1.3"
 echo "This script will:"
 echo "  1. Download ZaaNet project files from GitHub"
 echo "  2. Install and configure nodogsplash"
 echo "  3. Set up your router with your credentials"
+echo "  4. Configure router access and network info"
 echo ""
 echo "GitHub Repository: $GITHUB_REPO"
 echo "Branch: $GITHUB_BRANCH"
@@ -406,6 +407,33 @@ if [ -d "$PROJECT_DIR/images" ]; then
     print_success "Deployed: images directory"
 fi
 
+# Step 11.5: Fetch and Cache Network Information
+print_header "Step 11.5: Fetching Network Information"
+
+if [ "$CONTRACT_ID" != "0x0000000000000000000000000000000000000000" ]; then
+    print_info "Attempting to fetch network info from API..."
+    
+    # Try to fetch network info and cache it locally
+    NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
+    NETWORK_INFO_FILE="/etc/nodogsplash/htdocs/network-info.json"
+    
+    if wget -qO "$NETWORK_INFO_FILE" --timeout=10 "$NETWORK_INFO_URL" 2>/dev/null; then
+        # Verify it's valid JSON
+        if grep -q '"success"' "$NETWORK_INFO_FILE" 2>/dev/null; then
+            print_success "Network info cached locally"
+            print_info "Location: $NETWORK_INFO_FILE"
+        else
+            rm -f "$NETWORK_INFO_FILE"
+            print_warning "Invalid network info received (will load dynamically)"
+        fi
+    else
+        print_warning "Could not fetch network info (will load dynamically if API is accessible)"
+        print_info "This is normal if the network doesn't exist yet"
+    fi
+else
+    print_info "Skipping network info fetch (using default contract ID)"
+fi
+
 # Step 12: Inject configuration into files
 print_header "Step 12: Injecting Configuration"
 
@@ -477,18 +505,32 @@ uci set nodogsplash.@nodogsplash[0].authidletimeout='60'
 uci set nodogsplash.@nodogsplash[0].sessiontimeout='1440'
 uci set nodogsplash.@nodogsplash[0].checkinterval='60'
 
-# Add firewall rules for pre-authenticated users
+# Clear existing firewall rules
 uci -q delete nodogsplash.@nodogsplash[0].preauthenticated_users
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 67'
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 68'
+uci -q delete nodogsplash.@nodogsplash[0].users_to_router
+
+# Add firewall rules for pre-authenticated users (before login)
+print_info "Configuring pre-authentication firewall rules..."
+uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 67'  # DHCP
+uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 68'  # DHCP
+
+# Add rules to allow access to router admin panel and services
+print_info "Configuring router access rules..."
+uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 22'   # SSH
+uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 80'   # HTTP (Admin panel)
+uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 443'  # HTTPS (Admin panel)
+uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 53'   # DNS
+uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53'   # DNS
+uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67'   # DHCP
 
 uci commit nodogsplash
 print_success "Nodogsplash configured"
+print_success "Router admin panel will be accessible at: http://192.168.8.1"
 
 # Step 14: Configure WiFi
 print_header "Step 14: Configuring WiFi Network"
 
-print_warning "This will configure an open WiFi network (no password)"
+print_warning "This will configure an OPEN WiFi network (no password)"
 print_info "The captive portal will handle authentication"
 echo -n "Continue? (y/n): "
 read confirm
@@ -556,8 +598,8 @@ else
 fi
 
 # Verify deployed files
-VERIFY_FILES=("splash.html" "config.js" "script.js")
-for file in "${VERIFY_FILES[@]}"; do
+VERIFY_FILES="splash.html config.js script.js"
+for file in $VERIFY_FILES; do
     if [ -f "/etc/nodogsplash/htdocs/$file" ]; then
         print_success "$file deployed"
     else
@@ -572,13 +614,20 @@ else
     print_error "Configuration file missing"
 fi
 
+# Check if network info was cached
+if [ -f /etc/nodogsplash/htdocs/network-info.json ]; then
+    print_success "Network info cached locally"
+else
+    print_info "Network info will be loaded dynamically"
+fi
+
 # Step 17: Create installation log
 cat > /etc/zaanet/installation.log << EOF
 ZaaNet Installation Log
 =======================
 
 Installation Date: $(date)
-Script Version: 1.2 (GitHub Download)
+Script Version: 1.3 (GitHub Download with Router Access)
 
 GitHub Repository:
 ------------------
@@ -599,14 +648,21 @@ OpenWrt Version: $(cat /etc/openwrt_release 2>/dev/null | grep DISTRIB_DESCRIPTI
 Nodogsplash Version: $(opkg list-installed 2>/dev/null | grep nodogsplash | awk '{print $3}' || echo "Unknown")
 Available Space: ${AVAILABLE_MB}MB
 
+Features Enabled:
+-----------------
+- Router admin panel access (HTTP/HTTPS)
+- SSH access
+- Network info caching: $([ -f /etc/nodogsplash/htdocs/network-info.json ] && echo "Yes" || echo "No")
+
 Deployed Files:
 ---------------
-$(ls -lh /etc/nodogsplash/htdocs/ 2>/dev/null | grep -E '\.(html|js|css)$' | awk '{print $9, $5}')
+$(ls -lh /etc/nodogsplash/htdocs/ 2>/dev/null | grep -E '\.(html|js|css|json)$' | awk '{print $9, $5}')
 
 Status:
 -------
 Installation completed successfully.
 Nodogsplash service: running
+Router admin accessible: http://192.168.8.1
 EOF
 
 print_success "Installation log saved"
@@ -632,9 +688,23 @@ echo "Contract ID: $CONTRACT_ID"
 echo "Main Server: $MAIN_SERVER"
 echo "Config File: /etc/zaanet/config"
 echo ""
+echo "ROUTER ACCESS:"
+echo "--------------"
+echo "Admin Panel: http://192.168.8.1"
+echo "SSH Access:  ssh root@192.168.8.1"
+echo "Note: Accessible even with captive portal active"
+echo ""
 echo "DEPLOYED FILES:"
 echo "---------------"
 ls /etc/nodogsplash/htdocs/*.html /etc/nodogsplash/htdocs/*.js 2>/dev/null | xargs -n 1 basename | sed 's/^/  /'
+echo ""
+echo "NETWORK INFO:"
+echo "-------------"
+if [ -f /etc/nodogsplash/htdocs/network-info.json ]; then
+    echo "Status: Cached locally (no internet needed for splash page)"
+else
+    echo "Status: Will load dynamically from API (requires internet)"
+fi
 echo ""
 echo "TESTING THE CAPTIVE PORTAL:"
 echo "---------------------------"
@@ -643,6 +713,12 @@ echo "2. Open a web browser"
 echo "3. Try to visit any website"
 echo "4. You should see the ZaaNet splash page"
 echo "5. Enter a voucher code to authenticate"
+echo ""
+echo "ADMIN ACCESS (No Authentication Required):"
+echo "-------------------------------------------"
+echo "From a connected device:"
+echo "  - Access router: http://192.168.8.1"
+echo "  - SSH access: ssh root@192.168.8.1"
 echo ""
 echo "NEXT STEPS:"
 echo "-----------"
