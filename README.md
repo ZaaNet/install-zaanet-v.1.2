@@ -28,6 +28,10 @@ Enter your router password.
 wget -O /tmp/install.sh https://raw.githubusercontent.com/ZaaNet/install-zaanet-v.1.2/main/install-zaanet.sh && sh /tmp/install.sh
 ```
 
+```bash
+wget -O /tmp/uninstall-zaanet.sh https://raw.githubusercontent.com/ZaaNet/install-zaanet-v.1.2/main/uninstall-zaanet.sh && sh /tmp/uninstall-zaanet.sh
+```
+
 ### Step 4: Provide Your Credentials
 
 When prompted, enter:
