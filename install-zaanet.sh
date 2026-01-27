@@ -114,15 +114,8 @@ print_header "Step 3: Downloading Project Files"
 mkdir -p "$PROJECT_DIR"
 print_success "Created temporary directory"
 
-# List of files to download from the repository
-FILES_TO_DOWNLOAD=(
-    "splash.html"
-    "session.html"
-    "config.js"
-    "script.js"
-    "session.js"
-    "styles.css"
-)
+# List of files to download from the repository (space-separated, POSIX-compatible)
+FILES_TO_DOWNLOAD="splash.html session.html config.js script.js session.js styles.css"
 
 print_info "Downloading files from GitHub..."
 print_info "Repository: $GITHUB_REPO"
@@ -130,37 +123,35 @@ print_info "Branch: $GITHUB_BRANCH"
 echo ""
 
 # Download each file
-DOWNLOADED_COUNT=0
-FAILED_FILES=()
+FAILED_FILES=""
 
-for file in "${FILES_TO_DOWNLOAD[@]}"; do
+for file in $FILES_TO_DOWNLOAD; do
     FILE_URL="${GITHUB_RAW_BASE}/${file}"
     FILE_PATH="${PROJECT_DIR}/${file}"
-    
+
     print_info "Downloading: $file"
-    
+
     if $DOWNLOAD_CMD "$FILE_PATH" "$FILE_URL" > /dev/null 2>&1; then
         # Verify file was downloaded and is not empty
         if [ -f "$FILE_PATH" ] && [ -s "$FILE_PATH" ]; then
             print_success "Downloaded: $file"
-            DOWNLOADED_COUNT=$((DOWNLOADED_COUNT + 1))
         else
             print_error "Failed: $file (file is empty or missing)"
-            FAILED_FILES+=("$file")
+            FAILED_FILES="$FAILED_FILES $file"
             rm -f "$FILE_PATH"
         fi
     else
         print_error "Failed: $file"
-        FAILED_FILES+=("$file")
+        FAILED_FILES="$FAILED_FILES $file"
     fi
 done
 
 echo ""
 
 # Check if all files were downloaded successfully
-if [ ${#FAILED_FILES[@]} -gt 0 ]; then
+if [ -n "$FAILED_FILES" ]; then
     print_error "Failed to download some files"
-    print_info "Failed files: ${FAILED_FILES[*]}"
+    print_info "Failed files:${FAILED_FILES}"
     print_info "Please check:"
     print_info "  - Repository exists: $GITHUB_REPO"
     print_info "  - Branch exists: $GITHUB_BRANCH"
@@ -170,21 +161,21 @@ if [ ${#FAILED_FILES[@]} -gt 0 ]; then
 fi
 
 # Verify required files exist
-REQUIRED_FILES=("splash.html" "config.js" "script.js")
-MISSING_FILES=()
+REQUIRED_FILES="splash.html config.js script.js"
+MISSING_FILES=""
 
-for file in "${REQUIRED_FILES[@]}"; do
+for file in $REQUIRED_FILES; do
     if [ -f "$PROJECT_DIR/$file" ]; then
         print_success "Required file found: $file"
     else
         print_warning "Required file missing: $file"
-        MISSING_FILES+=("$file")
+        MISSING_FILES="$MISSING_FILES $file"
     fi
 done
 
-if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+if [ -n "$MISSING_FILES" ]; then
     print_error "Required files are missing"
-    print_info "Missing files: ${MISSING_FILES[*]}"
+    print_info "Missing files:${MISSING_FILES}"
     exit 1
 fi
 
