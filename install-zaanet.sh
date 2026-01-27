@@ -250,12 +250,14 @@ while true; do
         continue
     fi
     
-    # Validate format (should start with 0x and be 42 characters)
-    if [[ $CONTRACT_ID =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+    # Validate format (should be numeric) - POSIX compatible
+    # Remove all digits and check if anything remains
+    CONTRACT_ID_CLEAN=$(echo "$CONTRACT_ID" | tr -d '0-9')
+    if [ -z "$CONTRACT_ID_CLEAN" ]; then
         print_success "Valid contract ID format"
         break
     else
-        print_warning "Invalid format. Expected: 0x followed by 40 hexadecimal characters"
+        print_warning "Invalid format. Expected: numeric value (numbers only)"
         echo -n "Use anyway? (y/n): "
         read confirm
         if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
