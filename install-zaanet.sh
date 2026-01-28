@@ -507,9 +507,9 @@ if [ ! -f "$PROJECT_DIR/splash.html" ]; then
     exit 1
 fi
 
-# Empty the htdocs directory before deploying new files
+# Empty the htdocs directory before deploying new files (BusyBox compatible)
 print_info "Clearing /etc/nodogsplash/htdocs/ before deploying new files..."
-find /etc/nodogsplash/htdocs/ -mindepth 1 -delete
+find /etc/nodogsplash/htdocs/ -mindepth 1 ! -name ".gitkeep" -exec rm -rf {} +
 print_success "/etc/nodogsplash/htdocs/ is now empty."
 
 print_info "Copying project files to /etc/nodogsplash/htdocs/..."
