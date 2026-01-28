@@ -591,6 +591,93 @@ fi
 
 print_success "Configuration injected successfully"
 
+# Step 12.5: Fetch and cache network info for captive portal (recommended)
+print_header "Step 12.5: Caching Network Info (Recommended)"
+
+echo "The splash page loads network details from a local file: /network-info.json"
+echo "Blocked clients cannot reach the internet, so the router should fetch and cache it."
+echo ""
+echo -n "Fetch & cache network info now (and keep it refreshed)? (y/n) [y]: "
+read cache_confirm
+cache_confirm=${cache_confirm:-y}
+
+if [ "$cache_confirm" = "y" ] || [ "$cache_confirm" = "Y" ]; then
+    NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
+    NETWORK_INFO_TMP="/tmp/network-info.json"
+    NETWORK_INFO_DEST="/etc/nodogsplash/htdocs/network-info.json"
+
+    print_info "Fetching network info from: $NETWORK_INFO_URL"
+
+    # Fetch into temp file first
+    if $DOWNLOAD_CMD "$NETWORK_INFO_TMP" "$NETWORK_INFO_URL" > /dev/null 2>&1; then
+        # Basic validation: file exists, non-empty, and has \"success\":true
+        if [ -s "$NETWORK_INFO_TMP" ] && grep -q '"success"[[:space:]]*:[[:space:]]*true' "$NETWORK_INFO_TMP" 2>/dev/null; then
+            cp "$NETWORK_INFO_TMP" "$NETWORK_INFO_DEST"
+            chmod 644 "$NETWORK_INFO_DEST"
+            print_success "Cached network info to: $NETWORK_INFO_DEST"
+        else
+            print_warning "Network info fetch did not look valid; skipping cache write"
+            print_info "You can retry later with: $NETWORK_INFO_URL"
+        fi
+    else
+        print_warning "Failed to fetch network info (continuing without it)"
+        print_info "URL: $NETWORK_INFO_URL"
+    fi
+
+    # Create updater script for periodic refresh
+    print_info "Creating network info refresh script..."
+    cat > /etc/zaanet/update-network-info.sh << 'EOF'
+#!/bin/sh
+set -e
+
+# Load router config
+if [ -f /etc/zaanet/config ]; then
+  . /etc/zaanet/config
+else
+  exit 0
+fi
+
+NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
+TMP_FILE="/tmp/network-info.json"
+DEST_FILE="/etc/nodogsplash/htdocs/network-info.json"
+
+if command -v wget >/dev/null 2>&1; then
+  wget -O "$TMP_FILE" "$NETWORK_INFO_URL" >/dev/null 2>&1 || exit 0
+elif command -v curl >/dev/null 2>&1; then
+  curl -L -o "$TMP_FILE" "$NETWORK_INFO_URL" >/dev/null 2>&1 || exit 0
+else
+  exit 0
+fi
+
+# Only overwrite if response looks valid
+if [ -s "$TMP_FILE" ] && grep -q '"success"[[:space:]]*:[[:space:]]*true' "$TMP_FILE" 2>/dev/null; then
+  cp "$TMP_FILE" "$DEST_FILE"
+  chmod 644 "$DEST_FILE"
+fi
+EOF
+
+    chmod 755 /etc/zaanet/update-network-info.sh
+    print_success "Created: /etc/zaanet/update-network-info.sh"
+
+    # Install cron job (every 15 minutes)
+    print_info "Installing cron job (every 15 minutes)..."
+    mkdir -p /etc/crontabs
+    touch /etc/crontabs/root
+    # Remove any previous entry for this script, then append
+    grep -v "/etc/zaanet/update-network-info.sh" /etc/crontabs/root > /tmp/root.cron 2>/dev/null || true
+    echo "*/30 * * * * /etc/zaanet/update-network-info.sh >/dev/null 2>&1" >> /tmp/root.cron
+    cp /tmp/root.cron /etc/crontabs/root
+    rm -f /tmp/root.cron
+
+    # Ensure cron is enabled and running (OpenWrt)
+    /etc/init.d/cron enable > /dev/null 2>&1 || true
+    /etc/init.d/cron restart > /dev/null 2>&1 || true
+    print_success "Cron refresh enabled"
+else
+    print_warning "Skipped network info caching"
+    print_info "The splash page will hide network details if /network-info.json is missing."
+fi
+
 # Step 13: Configure nodogsplash
 print_header "Step 13: Configuring Nodogsplash"
 
@@ -623,6 +710,45 @@ uci -q delete nodogsplash.@nodogsplash[0].trustedmac || true
 
 print_success "Basic parameters set"
 
+# Step 13.5: Configure FAS (Forwarding Authentication Service)
+print_header "Step 13.5: Configuring FAS (Remote Authentication)"
+
+print_info "Setting up Forwarding Authentication Service (FAS)..."
+
+# Enable FAS mode
+uci set nodogsplash.@nodogsplash[0].fas_enable='1' || true
+print_success "FAS mode enabled"
+
+# Configure remote FAS server
+uci set nodogsplash.@nodogsplash[0].fas_remoteip='api.zaanet.xyz' || true
+uci set nodogsplash.@nodogsplash[0].fas_port='443' || true
+uci set nodogsplash.@nodogsplash[0].fas_path='/api/v1/nds/auth' || true
+uci set nodogsplash.@nodogsplash[0].fas_secure_enabled='1' || true
+print_success "FAS remote server configured: api.zaanet.xyz:443/api/v1/nds/auth"
+
+# Configure FAS parameters (fields to forward to server)
+# Clear existing FAS parameters first
+uci -q delete nodogsplash.@nodogsplash[0].fas_params || true
+
+# Add required fields that NoDogSplash will forward to the FAS endpoint
+uci add_list nodogsplash.@nodogsplash[0].fas_params='voucher' || true
+uci add_list nodogsplash.@nodogsplash[0].fas_params='mac' || true
+uci add_list nodogsplash.@nodogsplash[0].fas_params='ip' || true
+uci add_list nodogsplash.@nodogsplash[0].fas_params='tok' || true
+uci add_list nodogsplash.@nodogsplash[0].fas_params='routerId' || true
+uci add_list nodogsplash.@nodogsplash[0].fas_params='contractId' || true
+print_success "FAS parameters configured (voucher, mac, ip, tok, routerId, contractId)"
+
+# Set router metadata (exposed to FAS server)
+uci set nodogsplash.@nodogsplash[0].routerid="$ROUTER_ID" || true
+uci set nodogsplash.@nodogsplash[0].contractid="$CONTRACT_ID" || true
+print_success "Router metadata set (routerId: $ROUTER_ID, contractId: $CONTRACT_ID)"
+
+print_info "FAS configuration complete - voucher validation will use remote server"
+
+# Step 13.6: Admin Device Whitelisting
+print_header "Step 13.6: Whitelisting Admin Device"
+
 # Add admin device to trusted MAC list FIRST (before firewall rules)
 # This ensures admin device has access even if nodogsplash restarts
 if [ -n "$ADMIN_MAC" ]; then
@@ -634,6 +760,9 @@ else
     print_warning "No admin device MAC provided - you may lose WiFi access temporarily"
     print_info "You can add your MAC later: uci add_list nodogsplash.@nodogsplash[0].trustedmac='YOUR_MAC'"
 fi
+
+# Step 13.7: Configure Firewall Rules
+print_header "Step 13.7: Configuring Firewall Rules"
 
 # Add firewall rules for pre-authenticated users (before login)
 print_info "Configuring pre-authentication firewall rules..."
@@ -653,10 +782,13 @@ uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53' || 
 uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67' || true
 print_success "Router access rules configured"
 
+# Step 13.8: Commit Nodogsplash Configuration
+print_header "Step 13.8: Committing Nodogsplash Configuration"
+
 # Commit changes
 print_info "Committing configuration..."
 if uci commit nodogsplash; then
-    print_success "Nodogsplash configured successfully"
+    print_success "Nodogsplash configured successfully (including FAS)"
     print_success "Router admin panel will be accessible at: http://192.168.8.1"
     if [ -n "$ADMIN_MAC" ]; then
         print_success "Admin device ($ADMIN_MAC) has full access"
