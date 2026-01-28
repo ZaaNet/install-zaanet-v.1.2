@@ -488,6 +488,9 @@ print_info "Location: /etc/zaanet/config"
 
 # Step 11: Deploy project files
 print_header "Step 11: Deploying Project Files"
+# Clear htdocs before deploying new files (BusyBox compatible)
+print_info "Clearing /etc/nodogsplash/htdocs/ before deploying new files..."
+find /etc/nodogsplash/htdocs/ -type f ! -name ".gitkeep" -exec rm -f {} +
 
 # Backup existing files
 if [ -f /etc/nodogsplash/htdocs/splash.html ]; then
