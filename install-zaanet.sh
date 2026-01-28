@@ -1,6 +1,6 @@
 #!/bin/bash
 # ZaaNet Router Installation Script
-# Version: 1.2 - GitHub Download
+# Version: 1.4 - GitHub Download
 # Platform: GL.iNet GL-XE300 with OpenWrt 22.03.4
 
 set -e  # Exit on any error
@@ -329,39 +329,73 @@ if [ -n "$SSH_CONNECTION" ]; then
     ADMIN_IP=$(echo $SSH_CONNECTION | awk '{print $1}')
     print_info "Detected SSH connection from: $ADMIN_IP"
     
-    # Try to find MAC address from neighbor table (replaces arp command)
-    ADMIN_MAC=$(ip neigh show | grep "$ADMIN_IP" | awk '{print $5}' | head -1)
+    # Try multiple methods to get MAC address
+    ADMIN_MAC=""
     
-    if [ -n "$ADMIN_MAC" ] && [ "$ADMIN_MAC" != "00:00:00:00:00:00" ]; then
-        print_success "Detected device MAC: $ADMIN_MAC"
-        echo ""
-        echo "Device Information:"
-        echo "  IP Address: $ADMIN_IP"
-        echo "  MAC Address: $ADMIN_MAC"
-        echo ""
-        echo -n "Whitelist this device? (y/n): "
-        read whitelist_confirm
-        
-        if [ "$whitelist_confirm" = "y" ] || [ "$whitelist_confirm" = "Y" ]; then
-            print_success "Admin device will be whitelisted"
-        else
-            ADMIN_MAC=""
-            print_info "Admin device will NOT be whitelisted"
+    # Method 1: Try ip neigh show (neighbor table)
+    ADMIN_MAC=$(ip neigh show | grep "$ADMIN_IP" | grep -v "FAILED" | awk '{print $5}' | head -1)
+    
+    # Method 2: If not found, try to ping and refresh neighbor table
+    if [ -z "$ADMIN_MAC" ] || [ "$ADMIN_MAC" = "00:00:00:00:00:00" ]; then
+        print_info "Refreshing neighbor table..."
+        ping -c 1 -W 1 "$ADMIN_IP" > /dev/null 2>&1
+        sleep 1
+        ADMIN_MAC=$(ip neigh show | grep "$ADMIN_IP" | grep -v "FAILED" | awk '{print $5}' | head -1)
+    fi
+    
+    # Method 3: Try /proc/net/arp (ARP cache)
+    if [ -z "$ADMIN_MAC" ] || [ "$ADMIN_MAC" = "00:00:00:00:00:00" ]; then
+        ADMIN_MAC=$(cat /proc/net/arp 2>/dev/null | grep "$ADMIN_IP" | awk '{print $4}' | head -1)
+    fi
+    
+    # Method 4: Try DHCP leases (if device got IP via DHCP)
+    if [ -z "$ADMIN_MAC" ] || [ "$ADMIN_MAC" = "00:00:00:00:00:00" ]; then
+        if [ -f /tmp/dhcp.leases ]; then
+            ADMIN_MAC=$(grep "$ADMIN_IP" /tmp/dhcp.leases | awk '{print $2}' | head -1)
+        elif [ -f /var/lib/dhcp/dhcpd.leases ]; then
+            ADMIN_MAC=$(grep -A 10 "$ADMIN_IP" /var/lib/dhcp/dhcpd.leases | grep "hardware ethernet" | awk '{print $3}' | tr -d ';' | head -1)
         fi
-    else
+    fi
+    
+    # Validate MAC address format
+    if [ -n "$ADMIN_MAC" ] && [ "$ADMIN_MAC" != "00:00:00:00:00:00" ]; then
+        # Check if it's a valid MAC format
+        if echo "$ADMIN_MAC" | grep -qE '^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$'; then
+            # Convert to lowercase for consistency
+            ADMIN_MAC=$(echo "$ADMIN_MAC" | tr '[:upper:]' '[:lower:]')
+            print_success "Detected device MAC: $ADMIN_MAC"
+            echo ""
+            echo "Device Information:"
+            echo "  IP Address: $ADMIN_IP"
+            echo "  MAC Address: $ADMIN_MAC"
+            echo ""
+            echo -n "Whitelist this device? (y/n): "
+            read whitelist_confirm
+            
+            if [ "$whitelist_confirm" = "y" ] || [ "$whitelist_confirm" = "Y" ]; then
+                print_success "Admin device will be whitelisted"
+            else
+                ADMIN_MAC=""
+                print_info "Admin device will NOT be whitelisted"
+            fi
+        else
+            print_warning "Invalid MAC format detected: $ADMIN_MAC"
+            ADMIN_MAC=""
+        fi
+    fi
+    
+    # If still not found, offer manual entry
+    if [ -z "$ADMIN_MAC" ] || [ "$ADMIN_MAC" = "00:00:00:00:00:00" ]; then
         print_warning "Could not detect MAC address automatically"
         echo ""
-        echo -n "Enter MAC address manually? (y/n): "
-        read manual_mac
+        echo "Currently connected devices:"
+        ip neigh show | grep -v "FAILED" | awk '{print "  IP: " $1 " - MAC: " $5}'
+        echo ""
+        echo -n "Enter MAC address to whitelist (format: aa:bb:cc:dd:ee:ff) or press Enter to skip: "
+        read ADMIN_MAC
         
-        if [ "$manual_mac" = "y" ] || [ "$manual_mac" = "Y" ]; then
-            echo ""
-            echo "Currently connected devices:"
-            ip neigh show | grep -v "FAILED" | awk '{print "  IP: " $1 " - MAC: " $5}'
-            echo ""
-            
-            echo -n "Enter MAC address (format: aa:bb:cc:dd:ee:ff): "
-            read ADMIN_MAC
+        # If user entered something, validate it
+        if [ -n "$ADMIN_MAC" ]; then
             
             # Convert to lowercase for consistency
             ADMIN_MAC=$(echo "$ADMIN_MAC" | tr '[:upper:]' '[:lower:]')
@@ -555,6 +589,11 @@ print_success "Configuration injected successfully"
 # Step 13: Configure nodogsplash
 print_header "Step 13: Configuring Nodogsplash"
 
+print_warning "IMPORTANT: Ensure you are connected via SSH (not WiFi) before continuing"
+print_info "WiFi connectivity may be temporarily interrupted during configuration"
+echo ""
+read -p "Press Enter to continue (or Ctrl+C to cancel if not ready)..."
+
 # Backup existing config
 if [ -f /etc/config/nodogsplash ]; then
     cp /etc/config/nodogsplash /etc/config/nodogsplash.backup
@@ -579,6 +618,18 @@ uci -q delete nodogsplash.@nodogsplash[0].trustedmac || true
 
 print_success "Basic parameters set"
 
+# Add admin device to trusted MAC list FIRST (before firewall rules)
+# This ensures admin device has access even if nodogsplash restarts
+if [ -n "$ADMIN_MAC" ]; then
+    print_info "Adding admin device to trusted list (CRITICAL for maintaining access)..."
+    uci add_list nodogsplash.@nodogsplash[0].trustedmac="$ADMIN_MAC" || true
+    print_success "Admin device whitelisted: $ADMIN_MAC"
+    print_info "This device will bypass captive portal"
+else
+    print_warning "No admin device MAC provided - you may lose WiFi access temporarily"
+    print_info "You can add your MAC later: uci add_list nodogsplash.@nodogsplash[0].trustedmac='YOUR_MAC'"
+fi
+
 # Add firewall rules for pre-authenticated users (before login)
 print_info "Configuring pre-authentication firewall rules..."
 uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow tcp port 53' || true
@@ -596,14 +647,6 @@ uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 53' || 
 uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53' || true
 uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67' || true
 print_success "Router access rules configured"
-
-# Add admin device to trusted MAC list if provided
-if [ -n "$ADMIN_MAC" ]; then
-    print_info "Adding admin device to trusted list..."
-    uci add_list nodogsplash.@nodogsplash[0].trustedmac="$ADMIN_MAC" || true
-    print_success "Admin device whitelisted: $ADMIN_MAC"
-    print_info "This device will bypass captive portal"
-fi
 
 # Commit changes
 print_info "Committing configuration..."
@@ -625,9 +668,12 @@ fi
 # Step 14: Configure WiFi
 print_header "Step 14: Configuring WiFi Network"
 
-print_warning "This will configure an open WiFi network (no password)"
+print_warning "⚠️  WARNING: WiFi will be temporarily disconnected during reload!"
+print_warning "⚠️  Make sure you are connected via SSH (Ethernet/USB) before continuing!"
+print_info "This will configure an open WiFi network (no password)"
 print_info "The captive portal will handle authentication"
-echo -n "Continue? (y/n): "
+echo ""
+echo -n "Continue with WiFi configuration? (y/n): "
 read confirm
 
 if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
@@ -637,25 +683,73 @@ if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
         print_info "Backed up wireless configuration"
     fi
     
-    # Configure 2.4GHz WiFi
-    uci set wireless.@wifi-iface[0].encryption='none'
-    uci set wireless.@wifi-iface[0].ssid="$WIFI_SSID"
-    uci set wireless.@wifi-iface[0].disabled='0'
-    uci -q delete wireless.@wifi-iface[0].key
+    # Configure 2.4GHz WiFi (use || true to prevent exit on error)
+    uci set wireless.@wifi-iface[0].encryption='none' || true
+    uci set wireless.@wifi-iface[0].ssid="$WIFI_SSID" || true
+    uci set wireless.@wifi-iface[0].disabled='0' || true
+    uci -q delete wireless.@wifi-iface[0].key || true
     
     # Try to configure 5GHz if available
-    uci set wireless.@wifi-iface[1].encryption='none' 2>/dev/null
-    uci set wireless.@wifi-iface[1].ssid="${WIFI_SSID}-5G" 2>/dev/null
-    uci set wireless.@wifi-iface[1].disabled='0' 2>/dev/null
-    uci -q delete wireless.@wifi-iface[1].key 2>/dev/null
+    uci set wireless.@wifi-iface[1].encryption='none' 2>/dev/null || true
+    uci set wireless.@wifi-iface[1].ssid="${WIFI_SSID}-5G" 2>/dev/null || true
+    uci set wireless.@wifi-iface[1].disabled='0' 2>/dev/null || true
+    uci -q delete wireless.@wifi-iface[1].key 2>/dev/null || true
     
-    uci commit wireless
+    # Commit wireless configuration
+    if uci commit wireless; then
+        print_success "WiFi configuration committed"
+    else
+        print_error "Failed to commit WiFi configuration"
+        print_warning "Continuing anyway - you may need to configure WiFi manually"
+    fi
     print_success "WiFi configured"
     
-    print_info "Reloading WiFi (this may take 10 seconds)..."
-    wifi reload
-    sleep 5
-    print_success "WiFi reloaded"
+    print_warning "Reloading WiFi - all WiFi connections will drop temporarily!"
+    print_info "This may take 10-15 seconds..."
+    print_info "If connected via WiFi, you will need to reconnect after this step"
+    echo ""
+    
+    # Reload WiFi - use timeout to prevent hanging
+    print_info "Reloading WiFi (this may take 15-20 seconds)..."
+    
+    # Try to reload WiFi with a timeout
+    if command -v timeout > /dev/null 2>&1; then
+        # Use timeout if available
+        timeout 30 wifi reload || {
+            print_warning "WiFi reload timed out, but configuration is saved"
+            print_info "WiFi will reload on next reboot or you can manually run: wifi reload"
+        }
+    else
+        # Fallback: run in background with wait limit
+        print_info "Running WiFi reload in background..."
+        wifi reload &
+        WIFI_PID=$!
+        
+        # Wait up to 25 seconds
+        WAIT_COUNT=0
+        while [ $WAIT_COUNT -lt 25 ]; do
+            if ! kill -0 $WIFI_PID 2>/dev/null; then
+                # Process finished
+                break
+            fi
+            sleep 1
+            WAIT_COUNT=$((WAIT_COUNT + 1))
+        done
+        
+        # If still running, kill it and continue
+        if kill -0 $WIFI_PID 2>/dev/null; then
+            print_warning "WiFi reload taking too long, continuing anyway..."
+            kill $WIFI_PID 2>/dev/null || true
+            wait $WIFI_PID 2>/dev/null || true
+        fi
+    fi
+    
+    # Wait a bit for WiFi to stabilize
+    sleep 3
+    
+    print_success "WiFi configuration saved"
+    print_info "New SSID: $WIFI_SSID (open network)"
+    print_info "If WiFi didn't reload automatically, you can run: wifi reload"
 else
     print_warning "Skipped WiFi configuration"
     print_info "You must manually configure an open WiFi network later"
@@ -670,16 +764,23 @@ print_success "Nodogsplash enabled on boot"
 
 # Restart nodogsplash
 print_info "Starting nodogsplash..."
+print_info "If admin device was whitelisted, you should maintain access"
 /etc/init.d/nodogsplash restart > /dev/null 2>&1
-sleep 3
+sleep 5
 
 # Check status
 if /etc/init.d/nodogsplash status | grep -q "running"; then
     print_success "Nodogsplash is running"
+    if [ -n "$ADMIN_MAC" ]; then
+        print_success "Admin device ($ADMIN_MAC) should have full access"
+    else
+        print_warning "No admin device whitelisted - you may need to authenticate"
+    fi
 else
     print_error "Nodogsplash failed to start"
     print_info "Check logs: logread | grep nodogsplash"
-    exit 1
+    print_warning "You may need to manually restart: /etc/init.d/nodogsplash restart"
+    # Don't exit - allow installation to continue
 fi
 
 # Step 16: Verify installation
