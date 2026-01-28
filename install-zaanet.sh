@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu  # Exit on any error and treat unset variables as errors
 # ZaaNet Router Installation Script
 # Version: 1.4 - GitHub Download
 # Platform: GL.iNet GL-XE300 with OpenWrt 22.03.4
@@ -495,7 +496,19 @@ if [ -f /etc/nodogsplash/htdocs/splash.html ]; then
     print_info "Backed up existing splash.html to: $BACKUP_FILE"
 fi
 
-# Copy project files
+
+
+# Strictly require splash.html to exist before copy
+if [ ! -f "$PROJECT_DIR/splash.html" ]; then
+    print_error "splash.html is missing in $PROJECT_DIR. Aborting deployment."
+    exit 1
+fi
+
+# Empty the htdocs directory before deploying new files
+print_info "Clearing /etc/nodogsplash/htdocs/ before deploying new files..."
+find /etc/nodogsplash/htdocs/ -mindepth 1 -delete
+print_success "/etc/nodogsplash/htdocs/ is now empty."
+
 print_info "Copying project files to /etc/nodogsplash/htdocs/..."
 
 # Copy all HTML files
@@ -536,6 +549,12 @@ if [ -d "$PROJECT_DIR/images" ]; then
     mkdir -p /etc/nodogsplash/htdocs/images
     cp -r "$PROJECT_DIR/images"/* /etc/nodogsplash/htdocs/images/
     print_success "Deployed: images directory"
+fi
+
+# Strictly require splash.html to exist after copy
+if [ ! -f /etc/nodogsplash/htdocs/splash.html ]; then
+    print_error "splash.html was not copied to /etc/nodogsplash/htdocs/. Aborting."
+    exit 1
 fi
 
 # Step 12: Inject configuration into files
