@@ -509,8 +509,8 @@ fi
 
 # Empty the htdocs directory before deploying new files (BusyBox compatible)
 print_info "Clearing /etc/nodogsplash/htdocs/ before deploying new files..."
-find /etc/nodogsplash/htdocs/ -mindepth 1 ! -name ".gitkeep" -exec rm -rf {} +
-print_success "/etc/nodogsplash/htdocs/ is now empty."
+find /etc/nodogsplash/htdocs/ -mindepth 1 ! -name ".gitkeep" -exec rm -rf {} + 2>/dev/null || true
+print_success "/etc/nodogsplash/htdocs/ cleared."
 
 print_info "Copying project files to /etc/nodogsplash/htdocs/..."
 
