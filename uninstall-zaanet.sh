@@ -83,8 +83,8 @@ print_header "Step 2: Disabling Services"
 /etc/init.d/nodogsplash disable 2>/dev/null || true
 print_success "Disabled nodogsplash from boot"
 
-# Step 3: Remove ZaaNet configuration
-print_header "Step 3: Removing ZaaNet Configuration"
+# Step 3: Remove ZaaNet configuration and scripts
+print_header "Step 3: Removing ZaaNet Configuration and Scripts"
 
 if [ -d /etc/zaanet ]; then
     # Backup before removing
@@ -92,33 +92,55 @@ if [ -d /etc/zaanet ]; then
         cp /etc/zaanet/config /tmp/zaanet-config-backup-$(date +%Y%m%d-%H%M%S).txt
         print_info "Backed up config to /tmp/"
     fi
-    
+    # Remove update-network-info.sh and collect-metrics.sh if present
+    rm -f /etc/zaanet/update-network-info.sh 2>/dev/null
+    rm -f /etc/zaanet/collect-metrics.sh 2>/dev/null
     rm -rf /etc/zaanet
-    print_success "Removed /etc/zaanet directory"
+    print_success "Removed /etc/zaanet directory and scripts"
 else
     print_info "ZaaNet config directory not found"
 fi
 
-# Step 4: Remove ZaaNet splash pages
-print_header "Step 4: Removing Splash Pages"
+# Remove cron jobs for ZaaNet scripts
+print_info "Cleaning up ZaaNet cron jobs (network info, metrics)..."
+if [ -f /etc/crontabs/root ]; then
+    grep -v '/etc/zaanet/update-network-info.sh' /etc/crontabs/root | \
+    grep -v '/etc/zaanet/collect-metrics.sh' > /tmp/root.cron 2>/dev/null || true
+    cp /tmp/root.cron /etc/crontabs/root
+    rm -f /tmp/root.cron
+    print_success "Removed ZaaNet cron jobs from root crontab"
+else
+    print_info "No root crontab found"
+fi
+
+# Step 4: Remove ZaaNet splash pages, assets, and network info
+print_header "Step 4: Removing Splash Pages and Assets"
 
 # Backup original splash pages if they exist
 if [ -f /etc/nodogsplash/htdocs/splash.html.backup ]; then
     print_info "Original splash page backup found"
 fi
 
-# Remove ZaaNet files
+# Remove ZaaNet files and new assets
 ZAANET_FILES="splash.html session.html config.js script.js session.js styles.css network-info.json"
-
 for file in $ZAANET_FILES; do
     if [ -f "/etc/nodogsplash/htdocs/$file" ]; then
         rm -f "/etc/nodogsplash/htdocs/$file"
         print_success "Removed: $file"
     fi
 done
+# Remove assets and images directories if present
+if [ -d /etc/nodogsplash/htdocs/assets ]; then
+    rm -rf /etc/nodogsplash/htdocs/assets
+    print_success "Removed: assets directory"
+fi
+if [ -d /etc/nodogsplash/htdocs/images ]; then
+    rm -rf /etc/nodogsplash/htdocs/images
+    print_success "Removed: images directory"
+fi
 
 # Restore original splash page if backup exists
-if [ -f /etc/nodogsplash/htdocs/splash.html.backup ]; then
+if ls /etc/nodogsplash/htdocs/splash.html.backup* 1> /dev/null 2>&1; then
     LATEST_BACKUP=$(ls -t /etc/nodogsplash/htdocs/splash.html.backup* 2>/dev/null | head -1)
     if [ -n "$LATEST_BACKUP" ]; then
         cp "$LATEST_BACKUP" /etc/nodogsplash/htdocs/splash.html

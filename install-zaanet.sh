@@ -678,6 +678,106 @@ else
     print_info "The splash page will hide network details if /network-info.json is missing."
 fi
 
+# Step 12.6: Setup Metrics Collection (Traffic Stats from NoDogSplash)
+print_header "Step 12.6: Configuring Metrics Collection"
+
+echo "ZaaNet can collect real-time traffic stats (data usage) from connected users."
+echo "This data is used for:"
+echo "  - Session page analytics (download/upload stats)"
+echo "  - Admin dashboard metrics"
+echo "  - Usage-based billing (if enabled)"
+echo ""
+echo -n "Enable metrics collection? (y/n) [y]: "
+read metrics_confirm
+metrics_confirm=${metrics_confirm:-y}
+
+if [ "$metrics_confirm" = "y" ] || [ "$metrics_confirm" = "Y" ]; then
+    print_info "Creating metrics collection script..."
+    
+    cat > /etc/zaanet/collect-metrics.sh << 'METRICS_EOF'
+#!/bin/sh
+# ZaaNet Router Metrics Collection Script
+set -e
+
+# Load router config
+if [ -f /etc/zaanet/config ]; then
+  . /etc/zaanet/config
+else
+  exit 1
+fi
+
+LOG_FILE="/tmp/zaanet-metrics.log"
+METRICS_ENDPOINT="${MAIN_SERVER}/api/v1/portal/metrics/data-usage"
+
+# Check if NoDogSplash is running
+if ! /etc/init.d/nodogsplash status | grep -q "running"; then
+  exit 0
+fi
+
+# Get authenticated clients only
+CLIENT_DATA=$(ndsctl clients 2>/dev/null | awk '
+  NR > 1 && NF >= 7 {
+    ip = $1
+    download = $3
+    upload = $4
+    state = $7
+    
+    if (state ~ /authenticated/i && (download > 0 || upload > 0)) {
+      total = download + upload
+      printf "{\"userIP\":\"%s\",\"sessionId\":null,\"dataUsage\":{\"downloadBytes\":%d,\"uploadBytes\":%d,\"totalBytes\":%d,\"lastUpdated\":\"%s\"}},", ip, download, upload, total, strftime("%Y-%m-%dT%H:%M:%SZ")
+    }
+  }
+' | sed 's/,$//')
+
+if [ -z "$CLIENT_DATA" ]; then
+  exit 0
+fi
+
+PAYLOAD="{\"sessionUpdates\":[$CLIENT_DATA]}"
+
+# Send to server
+if command -v wget >/dev/null 2>&1; then
+  wget --timeout=10 --tries=1 -qO- \
+    --header="Content-Type: application/json" \
+    --header="X-Router-ID: $ROUTER_ID" \
+    --header="X-Contract-ID: $CONTRACT_ID" \
+    --post-data="$PAYLOAD" \
+    "$METRICS_ENDPOINT" >/dev/null 2>&1 || true
+elif command -v curl >/dev/null 2>&1; then
+  curl -s --max-time 10 \
+    -H "Content-Type: application/json" \
+    -H "X-Router-ID: $ROUTER_ID" \
+    -H "X-Contract-ID: $CONTRACT_ID" \
+    -d "$PAYLOAD" \
+    "$METRICS_ENDPOINT" >/dev/null 2>&1 || true
+fi
+
+exit 0
+METRICS_EOF
+
+    chmod 755 /etc/zaanet/collect-metrics.sh
+    print_success "Created: /etc/zaanet/collect-metrics.sh"
+
+    # Install cron job (every 1 minute)
+    print_info "Installing metrics collection cron job (every 60 seconds)..."
+    mkdir -p /etc/crontabs
+    touch /etc/crontabs/root
+    # Remove any previous entry for this script, then append
+    grep -v "/etc/zaanet/collect-metrics.sh" /etc/crontabs/root > /tmp/root.cron 2>/dev/null || true
+    echo "* * * * * /etc/zaanet/collect-metrics.sh >/dev/null 2>&1" >> /tmp/root.cron
+    cp /tmp/root.cron /etc/crontabs/root
+    rm -f /tmp/root.cron
+
+    # Ensure cron is enabled and running
+    /etc/init.d/cron enable > /dev/null 2>&1 || true
+    /etc/init.d/cron restart > /dev/null 2>&1 || true
+    print_success "Metrics collection enabled (runs every 60 seconds)"
+    print_info "Logs: /tmp/zaanet-metrics.log"
+else
+    print_warning "Skipped metrics collection"
+    print_info "Session analytics will not show real-time data usage"
+fi
+
 # Step 13: Configure nodogsplash
 print_header "Step 13: Configuring Nodogsplash"
 
