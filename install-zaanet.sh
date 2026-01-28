@@ -799,6 +799,8 @@ opkg install --force-reinstall nodogsplash > /dev/null 2>&1
 print_success "Nodogsplash config reset and package reinstalled"
 
 print_info "Setting nodogsplash parameters..."
+# Always remove legacy/invalid options before setting new ones
+uci -q delete nodogsplash.@nodogsplash[0].checkinterval || true
 
 # Use || true to prevent exit on error for individual commands
 uci set nodogsplash.@nodogsplash[0].enabled='1' || true
@@ -812,7 +814,6 @@ uci set nodogsplash.@nodogsplash[0].gatewayport='2050' || true
 uci set nodogsplash.@nodogsplash[0].docroot='/etc/nodogsplash/htdocs' || true
 uci set nodogsplash.@nodogsplash[0].splashpage='/etc/nodogsplash/htdocs/splash.html' || true
 uci set nodogsplash.@nodogsplash[0].loglevel='info' || true
-# (REMOVED) uci set nodogsplash.@nodogsplash[0].checkinterval='60' || true
 
 # Clear existing firewall rules
 uci -q delete nodogsplash.@nodogsplash[0].preauthenticated_users || true
@@ -875,20 +876,30 @@ print_header "Step 13.7: Configuring Firewall Rules"
 
 # Add firewall rules for pre-authenticated users (before login)
 print_info "Configuring pre-authentication firewall rules..."
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow tcp port 53' || true
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 53' || true
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 67' || true
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 68' || true
+if ! uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow tcp port 53'; then
+    print_error "Failed to add pre-authenticated firewall rule (tcp 53)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 53'; then
+    print_error "Failed to add pre-authenticated firewall rule (udp 53)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 67'; then
+    print_error "Failed to add pre-authenticated firewall rule (udp 67)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow udp port 68'; then
+    print_error "Failed to add pre-authenticated firewall rule (udp 68)"; exit 1; fi
 print_success "Pre-auth rules configured"
 
 # Add rules to allow access to router admin panel and services
 print_info "Configuring router access rules..."
-uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 22' || true
-uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 80' || true
-uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 443' || true
-uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 53' || true
-uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53' || true
-uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67' || true
+if ! uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 22'; then
+    print_error "Failed to add router access rule (tcp 22)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 80'; then
+    print_error "Failed to add router access rule (tcp 80)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 443'; then
+    print_error "Failed to add router access rule (tcp 443)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow tcp port 53'; then
+    print_error "Failed to add router access rule (tcp 53)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53'; then
+    print_error "Failed to add router access rule (udp 53)"; exit 1; fi
+if ! uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67'; then
+    print_error "Failed to add router access rule (udp 67)"; exit 1; fi
 print_success "Router access rules configured"
 
 # Step 13.8: Commit Nodogsplash Configuration
