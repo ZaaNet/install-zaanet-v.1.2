@@ -54,8 +54,8 @@ cleanup() {
 # Set trap to cleanup on exit
 trap cleanup EXIT
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+# Check if running as root (POSIX compatible)
+if [ "$(id -u)" -ne 0 ]; then
     print_error "This script must be run as root"
     print_info "Please SSH into the router first: ssh root@192.168.8.1"
     exit 1
