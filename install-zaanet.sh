@@ -786,11 +786,17 @@ print_info "WiFi connectivity may be temporarily interrupted during configuratio
 echo ""
 read -p "Press Enter to continue (or Ctrl+C to cancel if not ready)..."
 
-# Backup existing config
+# Hard reset Nodogsplash config for v5/v6 compatibility
+print_info "Resetting Nodogsplash config to default (removes legacy/invalid options)..."
+/etc/init.d/nodogsplash stop > /dev/null 2>&1 || true
 if [ -f /etc/config/nodogsplash ]; then
     cp /etc/config/nodogsplash /etc/config/nodogsplash.backup
     print_info "Backed up nodogsplash configuration"
+    rm -f /etc/config/nodogsplash
 fi
+opkg update > /dev/null 2>&1
+opkg install --force-reinstall nodogsplash > /dev/null 2>&1
+print_success "Nodogsplash config reset and package reinstalled"
 
 print_info "Setting nodogsplash parameters..."
 
@@ -801,29 +807,27 @@ uci set nodogsplash.@nodogsplash[0].gatewayinterface='br-lan' || true
 uci set nodogsplash.@nodogsplash[0].preauthidletimeout='10' || true
 uci set nodogsplash.@nodogsplash[0].authidletimeout='60' || true
 uci set nodogsplash.@nodogsplash[0].sessiontimeout='1440' || true
-uci set nodogsplash.@nodogsplash[0].checkinterval='60' || true
+# (REMOVED) uci set nodogsplash.@nodogsplash[0].checkinterval='60' || true
 
 # Clear existing firewall rules
 uci -q delete nodogsplash.@nodogsplash[0].preauthenticated_users || true
 uci -q delete nodogsplash.@nodogsplash[0].users_to_router || true
-uci -q delete nodogsplash.@nodogsplash[0].trustedmac || true
+uci -q delete nodogsplash.@nodogsplash[0].trustedmaclist || true
 
 print_success "Basic parameters set"
+
 
 # Step 13.5: Configure FAS (Forwarding Authentication Service)
 print_header "Step 13.5: Configuring FAS (Remote Authentication)"
 
 print_info "Setting up Forwarding Authentication Service (FAS)..."
 
-# Enable FAS mode
-uci set nodogsplash.@nodogsplash[0].fas_enable='1' || true
-print_success "FAS mode enabled"
-
+# (REMOVED) uci set nodogsplash.@nodogsplash[0].fas_enable='1' || true
 # Configure remote FAS server
 uci set nodogsplash.@nodogsplash[0].fas_remoteip='api.zaanet.xyz' || true
 uci set nodogsplash.@nodogsplash[0].fas_port='443' || true
 uci set nodogsplash.@nodogsplash[0].fas_path='/api/v1/nds/auth' || true
-uci set nodogsplash.@nodogsplash[0].fas_secure_enabled='1' || true
+uci set nodogsplash.@nodogsplash[0].fas_secure='1' || true
 print_success "FAS remote server configured: api.zaanet.xyz:443/api/v1/nds/auth"
 
 # Configure FAS parameters (fields to forward to server)
@@ -853,12 +857,12 @@ print_header "Step 13.6: Whitelisting Admin Device"
 # This ensures admin device has access even if nodogsplash restarts
 if [ -n "$ADMIN_MAC" ]; then
     print_info "Adding admin device to trusted list (CRITICAL for maintaining access)..."
-    uci add_list nodogsplash.@nodogsplash[0].trustedmac="$ADMIN_MAC" || true
+    uci add_list nodogsplash.@nodogsplash[0].trustedmaclist="$ADMIN_MAC" || true
     print_success "Admin device whitelisted: $ADMIN_MAC"
     print_info "This device will bypass captive portal"
 else
     print_warning "No admin device MAC provided - you may lose WiFi access temporarily"
-    print_info "You can add your MAC later: uci add_list nodogsplash.@nodogsplash[0].trustedmac='YOUR_MAC'"
+    print_info "You can add your MAC later: uci add_list nodogsplash.@nodogsplash[0].trustedmaclist='YOUR_MAC'"
 fi
 
 # Step 13.7: Configure Firewall Rules
