@@ -834,7 +834,7 @@ uci set nodogsplash.@nodogsplash[0].sessiontimeout='1440' || true
 # Portal server configuration (CRITICAL for splash page display)
 uci set nodogsplash.@nodogsplash[0].gatewayport='2050' || true
 uci set nodogsplash.@nodogsplash[0].docroot='/etc/nodogsplash/htdocs' || true
-uci set nodogsplash.@nodogsplash[0].splashpage='/etc/nodogsplash/htdocs/splash.html' || true
+uci set nodogsplash.@nodogsplash[0].splashpage='splash.html' || true
 uci set nodogsplash.@nodogsplash[0].loglevel='info' || true
 
 # Clear existing firewall rules
