@@ -268,7 +268,9 @@ while true; do
         continue
     fi
     
-    if [ ${#ZAANET_SECRET} -lt 16 ]; then
+    # Get string length (POSIX-compatible)
+    SECRET_LEN=$(printf '%s' "$ZAANET_SECRET" | wc -c)
+    if [ "$SECRET_LEN" -lt 16 ]; then
         print_warning "Secret key is too short (less than 16 characters)"
         echo -n "Use anyway? (y/n): "
         read confirm
@@ -301,7 +303,10 @@ echo ""
 print_header "Configuration Summary"
 echo "Router ID:   $ROUTER_ID"
 echo "Contract ID: $CONTRACT_ID"
-echo "Secret Key:  ${ZAANET_SECRET:0:4}...${ZAANET_SECRET: -4}"
+# Extract first 4 and last 4 characters (POSIX-compatible)
+SECRET_PREFIX=$(printf '%.4s' "$ZAANET_SECRET")
+SECRET_SUFFIX=$(echo "$ZAANET_SECRET" | sed 's/.*\(.\{4\}\)$/\1/')
+echo "Secret Key:  ${SECRET_PREFIX}...${SECRET_SUFFIX}"
 echo "Main Server: $MAIN_SERVER"
 echo "WiFi SSID:   $WIFI_SSID"
 echo ""
@@ -794,8 +799,8 @@ else
 fi
 
 # Verify deployed files
-VERIFY_FILES=("splash.html" "config.js" "script.js")
-for file in "${VERIFY_FILES[@]}"; do
+VERIFY_FILES="splash.html config.js script.js"
+for file in $VERIFY_FILES; do
     if [ -f "/etc/nodogsplash/htdocs/$file" ]; then
         print_success "$file deployed"
     else
