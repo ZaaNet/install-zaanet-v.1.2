@@ -93,3 +93,5 @@ logread | grep nodogsplash
 - Splash page: `/etc/nodogsplash/htdocs/splash.html`
 - Session page: `/etc/nodogsplash/htdocs/session.html`
 - Installation log: `/etc/zaanet/installation.log`
+
+ZaaNet2025!Admin
