@@ -1083,11 +1083,11 @@ if [ -z "$API_IP" ]; then
 else
 	print_info "Resolved $API_DOMAIN to IP: $API_IP"
 
-	# Remove previous entry if exists
-	uci -q delete_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP"
+	# Remove previous entry if exists (using proper del_list syntax)
+	uci -q del_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP" 2>/dev/null || true
 
 	# Add preauth rules with resolved IP
-	uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP"
+	uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP" 2>/dev/null || print_warning "Failed to add ZaaNet API pre-auth rule"
 	print_success "Updated Nodogsplash pre-auth rule for ZaaNet API"
 
 fi
