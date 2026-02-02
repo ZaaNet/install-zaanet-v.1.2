@@ -257,6 +257,49 @@ else
     fi
 fi
 
+# Step 6.5: Fix iptables-legacy for Nodogsplash
+print_header "Step 6.5: Applying iptables-legacy Fix"
+
+fix_iptables_legacy() {
+    print_info "Ensuring legacy iptables binaries are installed..."
+
+    # Install legacy packages if missing
+    for pkg in iptables-legacy ip6tables-legacy arptables-legacy ebtables-legacy; do
+        if ! opkg list-installed | grep -q "^$pkg"; then
+            print_info "Installing $pkg..."
+            opkg install $pkg >/dev/null 2>&1 && print_success "$pkg installed" || print_warning "Failed to install $pkg"
+        fi
+    done
+
+    print_info "Updating symlinks to use legacy binaries..."
+    ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables
+    ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables-restore
+    ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables-save
+    ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables
+    ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-restore
+    ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-save
+    ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables
+    ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables-restore
+    ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables-save
+    ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables
+    ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables-restore
+    ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables-save
+
+    # Optional: Comment out problematic VPN rules if present
+    FW_SCRIPT="/etc/firewall.vpn_server_policy.sh"
+    if [ -f "$FW_SCRIPT" ]; then
+        sed -i 's/^\(.*-j VPN_SER_POLICY.*\)$/#\1/' "$FW_SCRIPT"
+        print_info "Commented VPN rules in firewall script to prevent conflicts"
+    fi
+
+    # Restart firewall and Nodogsplash
+    /etc/init.d/firewall restart >/dev/null 2>&1 && print_success "Firewall restarted"
+    /etc/init.d/nodogsplash restart >/dev/null 2>&1 && print_success "Nodogsplash restarted"
+}
+
+# Execute the fix
+fix_iptables_legacy
+
 # Step 7: Generate Router ID
 print_header "Step 7: Generating Router Identifier"
 
@@ -969,8 +1012,26 @@ uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67' 2>/
 print_success "Router access rules configured"
 
 # Allow ZaaNet API during captive phase (CRITICAL)
-uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow tcp port 443 to api.zaanet.xyz'
+# Step 13.75: Resolve ZaaNet API domain and update Nodogsplash
+print_header "Step 13.75: Resolving ZaaNet API domain for Nodogsplash"
 
+# Resolve api.zaanet.xyz to IP
+API_DOMAIN="api.zaanet.xyz"
+API_IP=$(nslookup "$API_DOMAIN" 2>/dev/null | awk '/^Address: / { print $2 }' | head -n1)
+
+if [ -z "$API_IP" ]; then
+    print_warning "Failed to resolve $API_DOMAIN, skipping preauth IP update"
+else
+    print_info "Resolved $API_DOMAIN to IP: $API_IP"
+
+    # Remove previous entry if exists
+    uci -q delete_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP"
+
+    # Add preauth rules with resolved IP
+    uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP"
+    print_success "Updated Nodogsplash pre-auth rule for ZaaNet API"
+
+fi
 
 # Step 13.8: Commit Nodogsplash Configuration
 print_header "Step 13.8: Committing Nodogsplash Configuration"
