@@ -294,10 +294,15 @@ echo ""
 # ZaaNet Secret
 while true; do
     echo -n "Enter your ZaaNet Secret Key: "
-    # Use stty for password input (more portable than read -s)
-    stty -echo
-    read ZAANET_SECRET
-    stty echo
+    # Use stty for password input if available, otherwise fall back to regular read
+    if command -v stty > /dev/null 2>&1; then
+        stty -echo 2>/dev/null
+        read ZAANET_SECRET
+        stty echo 2>/dev/null
+    else
+        # Fallback for systems without stty (note: input will be visible)
+        read ZAANET_SECRET
+    fi
     echo ""
     
     if [ -z "$ZAANET_SECRET" ]; then
