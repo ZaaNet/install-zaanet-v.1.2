@@ -294,16 +294,16 @@ echo ""
 # ZaaNet Secret
 while true; do
     echo -n "Enter your ZaaNet Secret Key: "
-    # Use stty for password input if available, otherwise fall back to regular read
-    if command -v stty > /dev/null 2>&1; then
-        stty -echo 2>/dev/null
+    # Use stty for password input if available
+    if command -v stty >/dev/null 2>&1; then
+        stty -echo
         read ZAANET_SECRET
-        stty echo 2>/dev/null
+        stty echo
+        echo ""
     else
-        # Fallback for systems without stty (note: input will be visible)
+        # Fallback to regular read if stty not available
         read ZAANET_SECRET
     fi
-    echo ""
     
     if [ -z "$ZAANET_SECRET" ]; then
         print_error "Secret key cannot be empty"
@@ -927,40 +927,6 @@ uci -q delete nodogsplash.@nodogsplash[0].trustedmaclist 2>/dev/null || true
 
 print_success "Basic parameters set"
 
-# Step 13.5: Configure FAS (Forwarding Authentication Service)
-print_header "Step 13.5: Configuring FAS (Remote Authentication)"
-
-print_info "Setting up Forwarding Authentication Service (FAS)..."
-
-uci set nodogsplash.@nodogsplash[0].fas_enable='1' 2>/dev/null || print_warning "Failed to enable FAS"
-
-# Configure remote FAS server
-uci set nodogsplash.@nodogsplash[0].fas_remoteip='api.zaanet.xyz' 2>/dev/null || print_warning "Failed to set FAS remote IP"
-uci set nodogsplash.@nodogsplash[0].fas_port='443' 2>/dev/null || print_warning "Failed to set FAS port"
-uci set nodogsplash.@nodogsplash[0].fas_path='/api/v1/portal/nds/auth' 2>/dev/null || print_warning "Failed to set FAS path"
-uci set nodogsplash.@nodogsplash[0].fas_secure='1' 2>/dev/null || print_warning "Failed to set FAS secure"
-print_success "FAS remote server configured: api.zaanet.xyz:443/api/v1/portal/nds/auth"
-
-# Configure FAS parameters (fields to forward to server)
-# Clear existing FAS parameters first
-uci -q delete nodogsplash.@nodogsplash[0].fas_params 2>/dev/null || true
-
-# Add required fields that NoDogSplash will forward to the FAS endpoint
-uci add_list nodogsplash.@nodogsplash[0].fas_params='voucher' 2>/dev/null || print_warning "Failed to add voucher param"
-uci add_list nodogsplash.@nodogsplash[0].fas_params='mac' 2>/dev/null || print_warning "Failed to add mac param"
-uci add_list nodogsplash.@nodogsplash[0].fas_params='ip' 2>/dev/null || print_warning "Failed to add ip param"
-uci add_list nodogsplash.@nodogsplash[0].fas_params='tok' 2>/dev/null || print_warning "Failed to add tok param"
-uci add_list nodogsplash.@nodogsplash[0].fas_params='routerId' 2>/dev/null || print_warning "Failed to add routerId param"
-uci add_list nodogsplash.@nodogsplash[0].fas_params='contractId' 2>/dev/null || print_warning "Failed to add contractId param"
-print_success "FAS parameters configured (voucher, mac, ip, tok, routerId, contractId)"
-
-# Set router metadata (exposed to FAS server)
-uci set nodogsplash.@nodogsplash[0].routerid="$ROUTER_ID" 2>/dev/null || print_warning "Failed to set routerid"
-uci set nodogsplash.@nodogsplash[0].contractid="$CONTRACT_ID" 2>/dev/null || print_warning "Failed to set contractid"
-print_success "Router metadata set (routerId: $ROUTER_ID, contractId: $CONTRACT_ID)"
-
-print_info "FAS configuration complete - voucher validation will use remote server"
-
 # Step 13.6: Admin Device Whitelisting
 print_header "Step 13.6: Whitelisting Admin Device"
 
@@ -1002,13 +968,17 @@ uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 53' 2>/
 uci add_list nodogsplash.@nodogsplash[0].users_to_router='allow udp port 67' 2>/dev/null || print_warning "Failed to add router rule: udp 67"
 print_success "Router access rules configured"
 
+# Allow ZaaNet API during captive phase (CRITICAL)
+uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users='allow tcp port 443 to api.zaanet.xyz'
+
+
 # Step 13.8: Commit Nodogsplash Configuration
 print_header "Step 13.8: Committing Nodogsplash Configuration"
 
 # Commit changes
 print_info "Committing configuration..."
 if uci commit nodogsplash; then
-    print_success "Nodogsplash configured successfully (including FAS)"
+    print_success "Nodogsplash configured successfully"
     print_success "Router admin panel will be accessible at: http://192.168.8.1"
     if [ -n "$ADMIN_MAC" ]; then
         print_success "Admin device ($ADMIN_MAC) has full access"
