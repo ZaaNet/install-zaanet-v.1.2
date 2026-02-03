@@ -269,51 +269,51 @@ else
 fi
 
 # Step 6.5: Fix iptables-legacy for Nodogsplash
-# print_header "Step 6.5: Applying iptables-legacy Fix"
+print_header "Step 6.5: Applying iptables-legacy Fix"
 
-# fix_iptables_legacy() {
-# 	print_info "Ensuring legacy iptables binaries are installed..."
+fix_iptables_legacy() {
+	print_info "Ensuring legacy iptables binaries are installed..."
 
-# 	# Install legacy packages if missing
-# 	for pkg in iptables-legacy ip6tables-legacy arptables-legacy ebtables-legacy; do
-# 		if ! opkg list-installed 2>/dev/null | grep -q "^$pkg"; then
-# 			print_info "Installing $pkg..."
-# 			if opkg install "$pkg" >/dev/null 2>&1; then
-# 				print_success "$pkg installed"
-# 			else
-# 				print_warning "Failed to install $pkg"
-# 			fi
-# 		fi
-# 	done
+	# Install legacy packages if missing
+	for pkg in iptables-legacy ip6tables-legacy arptables-legacy ebtables-legacy; do
+		if ! opkg list-installed 2>/dev/null | grep -q "^$pkg"; then
+			print_info "Installing $pkg..."
+			if opkg install "$pkg" >/dev/null 2>&1; then
+				print_success "$pkg installed"
+			else
+				print_warning "Failed to install $pkg"
+			fi
+		fi
+	done
 
-# 	print_info "Updating symlinks to use legacy binaries..."
-# 	ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables
-# 	ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables-restore
-# 	ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables-save
-# 	ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables
-# 	ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-restore
-# 	ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-save
-# 	ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables
-# 	ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables-restore
-# 	ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables-save
-# 	ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables
-# 	ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables-restore
-# 	ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables-save
+	print_info "Updating symlinks to use legacy binaries..."
+	ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables
+	ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables-restore
+	ln -sf /usr/sbin/iptables-legacy /usr/sbin/iptables-save
+	ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables
+	ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-restore
+	ln -sf /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-save
+	ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables
+	ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables-restore
+	ln -sf /usr/sbin/arptables-legacy /usr/sbin/arptables-save
+	ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables
+	ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables-restore
+	ln -sf /usr/sbin/ebtables-legacy /usr/sbin/ebtables-save
 
-# 	# Optional: Comment out problematic VPN rules if present
-# 	FW_SCRIPT="/etc/firewall.vpn_server_policy.sh"
-# 	if [ -f "$FW_SCRIPT" ]; then
-# 		sed -i 's/^\(.*-j VPN_SER_POLICY.*\)$/#\1/' "$FW_SCRIPT"
-# 		print_info "Commented VPN rules in firewall script to prevent conflicts"
-# 	fi
+	# Optional: Comment out problematic VPN rules if present
+	FW_SCRIPT="/etc/firewall.vpn_server_policy.sh"
+	if [ -f "$FW_SCRIPT" ]; then
+		sed -i 's/^\(.*-j VPN_SER_POLICY.*\)$/#\1/' "$FW_SCRIPT"
+		print_info "Commented VPN rules in firewall script to prevent conflicts"
+	fi
 
-# 	# Restart firewall and Nodogsplash
-# 	/etc/init.d/firewall restart >/dev/null 2>&1 && print_success "Firewall restarted"
-# 	/etc/init.d/nodogsplash restart >/dev/null 2>&1 && print_success "Nodogsplash restarted"
-# }
+	# Restart firewall and Nodogsplash
+	/etc/init.d/firewall restart >/dev/null 2>&1 && print_success "Firewall restarted"
+	/etc/init.d/nodogsplash restart >/dev/null 2>&1 && print_success "Nodogsplash restarted"
+}
 
 # Execute the fix
-# fix_iptables_legacy
+fix_iptables_legacy
 
 # Step 7: Generate Router ID
 print_header "Step 7: Generating Router Identifier"
@@ -401,38 +401,38 @@ done
 echo ""
 
 # ZaaNet Secret
-# while true; do
-# 	echo -n "Enter your ZaaNet Secret Key: "
-# 	# Use stty for password input if available
-# 	if command -v stty >/dev/null 2>&1; then
-# 		stty -echo
-# 		read -r ZAANET_SECRET
-# 		stty echo
-# 		echo ""
-# 	else
-# 		# Fallback to regular read if stty not available
-# 		read -r ZAANET_SECRET
-# 	fi
+while true; do
+	echo -n "Enter your ZaaNet Secret Key: "
+	# Use stty for password input if available
+	if command -v stty >/dev/null 2>&1; then
+		stty -echo
+		read -r ZAANET_SECRET
+		stty echo
+		echo ""
+	else
+		# Fallback to regular read if stty not available
+		read -r ZAANET_SECRET
+	fi
 
-# 	if [ -z "$ZAANET_SECRET" ]; then
-# 		print_error "Secret key cannot be empty"
-# 		continue
-# 	fi
+	if [ -z "$ZAANET_SECRET" ]; then
+		print_error "Secret key cannot be empty"
+		continue
+	fi
 
-# 	# Get string length (POSIX-compatible)
-# 	SECRET_LEN=$(printf '%s' "${ZAANET_SECRET}" | wc -c)
-# 	if [ "${SECRET_LEN}" -lt 16 ]; then
-# 		print_warning "Secret key is too short (less than 16 characters)"
-# 		echo -n "Use anyway? (y/n): "
-# 		read -r confirm
-# 		if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-# 			break
-# 		fi
-# 	else
-# 		print_success "Secret key accepted"
-# 		break
-# 	fi
-# done
+	# Get string length (POSIX-compatible)
+	SECRET_LEN=$(printf '%s' "${ZAANET_SECRET}" | wc -c)
+	if [ "${SECRET_LEN}" -lt 16 ]; then
+		print_warning "Secret key is too short (less than 16 characters)"
+		echo -n "Use anyway? (y/n): "
+		read -r confirm
+		if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+			break
+		fi
+	else
+		print_success "Secret key accepted"
+		break
+	fi
+done
 
 echo ""
 
@@ -443,20 +443,20 @@ print_info "Main Server: $MAIN_SERVER"
 echo ""
 
 # WiFi SSID
-# echo -n "Enter WiFi SSID [ZaaNet]: "
-# read -r WIFI_SSID
-# WIFI_SSID=${WIFI_SSID:-ZaaNet}
-# print_info "Using SSID: $WIFI_SSID"
+echo -n "Enter WiFi SSID [ZaaNet]: "
+read -r WIFI_SSID
+WIFI_SSID=${WIFI_SSID:-ZaaNet}
+print_info "Using SSID: $WIFI_SSID"
 
-# echo ""
+echo ""
 
 # Confirmation
 print_header "Configuration Summary"
 echo "Router ID:   $ROUTER_ID"
 echo "Contract ID: $CONTRACT_ID"
-# echo "Secret Key:  [hidden for security]"
+echo "Secret Key:  [hidden for security]"
 echo "Main Server: $MAIN_SERVER"
-# echo "WiFi SSID:   $WIFI_SSID"
+echo "WiFi SSID:   $WIFI_SSID"
 echo ""
 echo -n "Is this correct? (y/n): "
 read -r confirm
@@ -613,10 +613,10 @@ CONTRACT_ID="$CONTRACT_ID"
 MAIN_SERVER="$MAIN_SERVER"
 
 # ZaaNet secret key (keep secure!)
-# ZAANET_SECRET="$ZAANET_SECRET"
+ZAANET_SECRET="$ZAANET_SECRET"
 
 # WiFi SSID
-# WIFI_SSID="$WIFI_SSID"
+WIFI_SSID="$WIFI_SSID"
 EOF
 
 chmod 600 /etc/zaanet/config
@@ -627,11 +627,11 @@ print_info "Location: /etc/zaanet/config"
 print_header "Step 11: Deploying Project Files"
 
 # Create backup directory for htdocs (if any previous files exist)
-# BACKUP_DIR="/etc/nodogsplash/htdocs.backup.$(date +%Y%m%d-%H%M%S)"
-# if [ -d /etc/nodogsplash/htdocs ] && [ "$(find /etc/nodogsplash/htdocs -mindepth 1 2>/dev/null | wc -l)" -gt 0 ]; then
-# 	cp -r /etc/nodogsplash/htdocs "$BACKUP_DIR"
-# 	print_info "Previous htdocs backed up to: $BACKUP_DIR"
-# fi
+BACKUP_DIR="/etc/nodogsplash/htdocs.backup.$(date +%Y%m%d-%H%M%S)"
+if [ -d /etc/nodogsplash/htdocs ] && [ "$(find /etc/nodogsplash/htdocs -mindepth 1 2>/dev/null | wc -l)" -gt 0 ]; then
+	cp -r /etc/nodogsplash/htdocs "$BACKUP_DIR"
+	print_info "Previous htdocs backed up to: $BACKUP_DIR"
+fi
 
 # Clear htdocs before deploying new files (BusyBox compatible)
 print_info "Clearing /etc/nodogsplash/htdocs/ before deploying new files..."
@@ -648,335 +648,335 @@ print_info "Copying project files to /etc/nodogsplash/htdocs/..."
 DEPLOYMENT_FAILED=false
 
 # Copy all HTML files
-# for file in "$PROJECT_DIR"/*.html; do
-# 	if [ -f "$file" ]; then
-# 		filename=$(basename "$file")
-# 		if cp "$file" /etc/nodogsplash/htdocs/; then
-# 			if [ -f "/etc/nodogsplash/htdocs/$filename" ] && [ -s "/etc/nodogsplash/htdocs/$filename" ]; then
-# 				print_success "Deployed: $filename"
-# 			else
-# 				print_error "Failed to deploy: $filename (file empty or missing after copy)"
-# 				DEPLOYMENT_FAILED=true
-# 			fi
-# 		else
-# 			print_error "Failed to copy: $filename"
-# 			DEPLOYMENT_FAILED=true
-# 		fi
-# 	fi
-# done
+for file in "$PROJECT_DIR"/*.html; do
+	if [ -f "$file" ]; then
+		filename=$(basename "$file")
+		if cp "$file" /etc/nodogsplash/htdocs/; then
+			if [ -f "/etc/nodogsplash/htdocs/$filename" ] && [ -s "/etc/nodogsplash/htdocs/$filename" ]; then
+				print_success "Deployed: $filename"
+			else
+				print_error "Failed to deploy: $filename (file empty or missing after copy)"
+				DEPLOYMENT_FAILED=true
+			fi
+		else
+			print_error "Failed to copy: $filename"
+			DEPLOYMENT_FAILED=true
+		fi
+	fi
+done
 
 # Copy all JS files
-# for file in "$PROJECT_DIR"/*.js; do
-# 	if [ -f "$file" ]; then
-# 		filename=$(basename "$file")
-# 		if cp "$file" /etc/nodogsplash/htdocs/; then
-# 			if [ -f "/etc/nodogsplash/htdocs/$filename" ] && [ -s "/etc/nodogsplash/htdocs/$filename" ]; then
-# 				print_success "Deployed: $filename"
-# 			else
-# 				print_error "Failed to deploy: $filename (file empty or missing after copy)"
-# 				DEPLOYMENT_FAILED=true
-# 			fi
-# 		else
-# 			print_error "Failed to copy: $filename"
-# 			DEPLOYMENT_FAILED=true
-# 		fi
-# 	fi
-# done
+for file in "$PROJECT_DIR"/*.js; do
+	if [ -f "$file" ]; then
+		filename=$(basename "$file")
+		if cp "$file" /etc/nodogsplash/htdocs/; then
+			if [ -f "/etc/nodogsplash/htdocs/$filename" ] && [ -s "/etc/nodogsplash/htdocs/$filename" ]; then
+				print_success "Deployed: $filename"
+			else
+				print_error "Failed to deploy: $filename (file empty or missing after copy)"
+				DEPLOYMENT_FAILED=true
+			fi
+		else
+			print_error "Failed to copy: $filename"
+			DEPLOYMENT_FAILED=true
+		fi
+	fi
+done
 
 # Copy all CSS files
-# for file in "$PROJECT_DIR"/*.css; do
-# 	if [ -f "$file" ]; then
-# 		filename=$(basename "$file")
-# 		if cp "$file" /etc/nodogsplash/htdocs/; then
-# 			if [ -f "/etc/nodogsplash/htdocs/$filename" ] && [ -s "/etc/nodogsplash/htdocs/$filename" ]; then
-# 				print_success "Deployed: $filename"
-# 			else
-# 				print_error "Failed to deploy: $filename (file empty or missing after copy)"
-# 				DEPLOYMENT_FAILED=true
-# 			fi
-# 		else
-# 			print_error "Failed to copy: $filename"
-# 			DEPLOYMENT_FAILED=true
-# 		fi
-# 	fi
-# done
+for file in "$PROJECT_DIR"/*.css; do
+	if [ -f "$file" ]; then
+		filename=$(basename "$file")
+		if cp "$file" /etc/nodogsplash/htdocs/; then
+			if [ -f "/etc/nodogsplash/htdocs/$filename" ] && [ -s "/etc/nodogsplash/htdocs/$filename" ]; then
+				print_success "Deployed: $filename"
+			else
+				print_error "Failed to deploy: $filename (file empty or missing after copy)"
+				DEPLOYMENT_FAILED=true
+			fi
+		else
+			print_error "Failed to copy: $filename"
+			DEPLOYMENT_FAILED=true
+		fi
+	fi
+done
 
 # Copy shell scripts if any
-# for file in "$PROJECT_DIR"/*.sh; do
-# 	if [ -f "$file" ]; then
-# 		filename=$(basename "$file")
-# 		# Skip the install script itself
-# 		if [ "$filename" != "install.sh" ] && [ "$filename" != "install-zaanet.sh" ]; then
-# 			if cp "$file" /etc/nodogsplash/htdocs/; then
-# 				chmod 755 "/etc/nodogsplash/htdocs/$filename"
-# 				print_success "Deployed: $filename"
-# 			else
-# 				print_warning "Failed to copy: $filename (non-critical)"
-# 			fi
-# 		fi
-# 	fi
-# done
+for file in "$PROJECT_DIR"/*.sh; do
+	if [ -f "$file" ]; then
+		filename=$(basename "$file")
+		# Skip the install script itself
+		if [ "$filename" != "install.sh" ] && [ "$filename" != "install-zaanet.sh" ]; then
+			if cp "$file" /etc/nodogsplash/htdocs/; then
+				chmod 755 "/etc/nodogsplash/htdocs/$filename"
+				print_success "Deployed: $filename"
+			else
+				print_warning "Failed to copy: $filename (non-critical)"
+			fi
+		fi
+	fi
+done
 
 # If deployment failed, try direct download as fallback
-# if [ "$DEPLOYMENT_FAILED" = "true" ] || [ ! -f "/etc/nodogsplash/htdocs/splash.html" ]; then
-# 	print_warning "Direct file copy failed, attempting direct download fallback..."
+if [ "$DEPLOYMENT_FAILED" = "true" ] || [ ! -f "/etc/nodogsplash/htdocs/splash.html" ]; then
+	print_warning "Direct file copy failed, attempting direct download fallback..."
 
-# 	# Critical files to download directly from GitHub if local copy fails
-# 	CRITICAL_FILES="splash.html styles.css script.js session.html session.js config.js"
+	# Critical files to download directly from GitHub if local copy fails
+	CRITICAL_FILES="splash.html styles.css script.js session.html session.js config.js"
 
-# 	for file in $CRITICAL_FILES; do
-# 		if [ ! -f "/etc/nodogsplash/htdocs/$file" ] || [ ! -s "/etc/nodogsplash/htdocs/$file" ]; then
-# 			print_info "Downloading $file from GitHub..."
-# 			FILE_URL="${GITHUB_RAW_BASE}/${file}"
+	for file in $CRITICAL_FILES; do
+		if [ ! -f "/etc/nodogsplash/htdocs/$file" ] || [ ! -s "/etc/nodogsplash/htdocs/$file" ]; then
+			print_info "Downloading $file from GitHub..."
+			FILE_URL="${GITHUB_RAW_BASE}/${file}"
 
-# 			if $DOWNLOAD_CMD "/etc/nodogsplash/htdocs/$file" "$FILE_URL" >/dev/null 2>&1; then
-# 				if [ -f "/etc/nodogsplash/htdocs/$file" ] && [ -s "/etc/nodogsplash/htdocs/$file" ]; then
-# 					print_success "Downloaded and deployed: $file"
-# 				else
-# 					print_error "Downloaded file is empty: $file"
-# 				fi
-# 			else
-# 				print_warning "Failed to download: $file (continuing anyway)"
-# 			fi
-# 		fi
-# 	done
-# fi
+			if $DOWNLOAD_CMD "/etc/nodogsplash/htdocs/$file" "$FILE_URL" >/dev/null 2>&1; then
+				if [ -f "/etc/nodogsplash/htdocs/$file" ] && [ -s "/etc/nodogsplash/htdocs/$file" ]; then
+					print_success "Downloaded and deployed: $file"
+				else
+					print_error "Downloaded file is empty: $file"
+				fi
+			else
+				print_warning "Failed to download: $file (continuing anyway)"
+			fi
+		fi
+	done
+fi
 
 # Copy assets directory if exists
-# if [ -d "$PROJECT_DIR/assets" ]; then
-# 	mkdir -p /etc/nodogsplash/htdocs/assets
-# 	if cp -r "$PROJECT_DIR/assets"/* /etc/nodogsplash/htdocs/assets/ 2>/dev/null; then
-# 		print_success "Deployed: assets directory"
-# 	else
-# 		print_warning "Failed to deploy assets directory (may not exist)"
-# 	fi
-# fi
+if [ -d "$PROJECT_DIR/assets" ]; then
+	mkdir -p /etc/nodogsplash/htdocs/assets
+	if cp -r "$PROJECT_DIR/assets"/* /etc/nodogsplash/htdocs/assets/ 2>/dev/null; then
+		print_success "Deployed: assets directory"
+	else
+		print_warning "Failed to deploy assets directory (may not exist)"
+	fi
+fi
 
 # Copy images directory if exists
-# if [ -d "$PROJECT_DIR/images" ]; then
-# 	mkdir -p /etc/nodogsplash/htdocs/images
-# 	if cp -r "$PROJECT_DIR/images"/* /etc/nodogsplash/htdocs/images/ 2>/dev/null; then
-# 		print_success "Deployed: images directory"
-# 	else
-# 		print_warning "Failed to deploy images directory (may not exist)"
-# 	fi
-# fi
+if [ -d "$PROJECT_DIR/images" ]; then
+	mkdir -p /etc/nodogsplash/htdocs/images
+	if cp -r "$PROJECT_DIR/images"/* /etc/nodogsplash/htdocs/images/ 2>/dev/null; then
+		print_success "Deployed: images directory"
+	else
+		print_warning "Failed to deploy images directory (may not exist)"
+	fi
+fi
 
 # Strictly require splash.html to exist after deployment
-# if [ ! -f /etc/nodogsplash/htdocs/splash.html ] || [ ! -s /etc/nodogsplash/htdocs/splash.html ]; then
-# 	print_error "splash.html is missing or empty after deployment. Aborting."
-# 	print_info "Deployment backup available at: $BACKUP_DIR"
-# 	exit 1
-# fi
+if [ ! -f /etc/nodogsplash/htdocs/splash.html ] || [ ! -s /etc/nodogsplash/htdocs/splash.html ]; then
+	print_error "splash.html is missing or empty after deployment. Aborting."
+	print_info "Deployment backup available at: $BACKUP_DIR"
+	exit 1
+fi
 
-# print_success "All critical files deployed successfully"
+print_success "All critical files deployed successfully"
 
 # Step 12: Inject configuration into files
-# print_header "Step 12: Injecting Configuration"
+print_header "Step 12: Injecting Configuration"
 
-# print_info "Replacing configuration placeholders in files..."
+print_info "Replacing configuration placeholders in files..."
 
 # Use perl for safe variable substitution (avoids sed escaping issues)
-# for file in /etc/nodogsplash/htdocs/*.html /etc/nodogsplash/htdocs/*.js /etc/nodogsplash/htdocs/*.css; do
-# 	if [ -f "$file" ]; then
-# 		filename=$(basename "$file")
+for file in /etc/nodogsplash/htdocs/*.html /etc/nodogsplash/htdocs/*.js /etc/nodogsplash/htdocs/*.css; do
+	if [ -f "$file" ]; then
+		filename=$(basename "$file")
 
-# 		# Create a backup before modification
-# 		cp "$file" "${file}.tmp"
+		# Create a backup before modification
+		cp "$file" "${file}.tmp"
 
-# 		# Use perl for safe substitution if available
-# 		if command -v perl >/dev/null 2>&1; then
-# 			perl -pi -e "s/ROUTER_ID_PLACEHOLDER/$ROUTER_ID/g" "$file" 2>/dev/null || true
-# 			perl -pi -e "s/CONTRACT_ID_PLACEHOLDER/$CONTRACT_ID/g" "$file" 2>/dev/null || true
-# 			perl -pi -e "s/MAIN_SERVER_PLACEHOLDER/$MAIN_SERVER/g" "$file" 2>/dev/null || true
-# 			perl -pi -e "s/WIFI_SSID_PLACEHOLDER/$WIFI_SSID/g" "$file" 2>/dev/null || true
-# 		else
-# 			# Fallback to sed with | delimiter for URLs
-# 			sed -i "s/ROUTER_ID_PLACEHOLDER/$ROUTER_ID/g" "$file" 2>/dev/null || true
-# 			sed -i "s/CONTRACT_ID_PLACEHOLDER/$CONTRACT_ID/g" "$file" 2>/dev/null || true
-# 			sed -i "s|MAIN_SERVER_PLACEHOLDER|$MAIN_SERVER|g" "$file" 2>/dev/null || true
-# 			sed -i "s/WIFI_SSID_PLACEHOLDER/$WIFI_SSID/g" "$file" 2>/dev/null || true
-# 		fi
+		# Use perl for safe substitution if available
+		if command -v perl >/dev/null 2>&1; then
+			perl -pi -e "s/ROUTER_ID_PLACEHOLDER/$ROUTER_ID/g" "$file" 2>/dev/null || true
+			perl -pi -e "s/CONTRACT_ID_PLACEHOLDER/$CONTRACT_ID/g" "$file" 2>/dev/null || true
+			perl -pi -e "s/MAIN_SERVER_PLACEHOLDER/$MAIN_SERVER/g" "$file" 2>/dev/null || true
+			perl -pi -e "s/WIFI_SSID_PLACEHOLDER/$WIFI_SSID/g" "$file" 2>/dev/null || true
+		else
+			# Fallback to sed with | delimiter for URLs
+			sed -i "s/ROUTER_ID_PLACEHOLDER/$ROUTER_ID/g" "$file" 2>/dev/null || true
+			sed -i "s/CONTRACT_ID_PLACEHOLDER/$CONTRACT_ID/g" "$file" 2>/dev/null || true
+			sed -i "s|MAIN_SERVER_PLACEHOLDER|$MAIN_SERVER|g" "$file" 2>/dev/null || true
+			sed -i "s/WIFI_SSID_PLACEHOLDER/$WIFI_SSID/g" "$file" 2>/dev/null || true
+		fi
 
-# 		# Verify file is still valid after replacement
-# 		if [ ! -s "$file" ]; then
-# 			print_error "File became empty after replacement: $filename - restoring backup"
-# 			mv "${file}.tmp" "$file"
-# 		else
-# 			print_success "Updated: $filename"
-# 			rm -f "${file}.tmp"
-# 		fi
-# 	fi
-# done
+		# Verify file is still valid after replacement
+		if [ ! -s "$file" ]; then
+			print_error "File became empty after replacement: $filename - restoring backup"
+			mv "${file}.tmp" "$file"
+		else
+			print_success "Updated: $filename"
+			rm -f "${file}.tmp"
+		fi
+	fi
+done
 
 # Final verification of critical files
-# if [ ! -f /etc/nodogsplash/htdocs/splash.html ] || [ ! -s /etc/nodogsplash/htdocs/splash.html ]; then
-# 	print_error "splash.html is missing or empty after configuration injection"
-# 	exit 1
-# fi
+if [ ! -f /etc/nodogsplash/htdocs/splash.html ] || [ ! -s /etc/nodogsplash/htdocs/splash.html ]; then
+	print_error "splash.html is missing or empty after configuration injection"
+	exit 1
+fi
 
-# print_success "Configuration injected successfully"
-# print_success "All deployed files have correct permissions"
+print_success "Configuration injected successfully"
+print_success "All deployed files have correct permissions"
 
 # Step 12.2: Fetch and cache network info for captive portal (recommended)
-# print_header "Step 12.4: Caching Network Info (Recommended)"
+print_header "Step 12.4: Caching Network Info (Recommended)"
 
-# echo "The splash page loads network details from a local file: /network-info.json"
-# echo "Blocked clients cannot reach the internet, so the router should fetch and cache it."
-# echo ""
-# echo -n "Fetch & cache network info now (and keep it refreshed)? (y/n) [y]: "
-# read -r cache_confirm
-# cache_confirm=${cache_confirm:-y}
+echo "The splash page loads network details from a local file: /network-info.json"
+echo "Blocked clients cannot reach the internet, so the router should fetch and cache it."
+echo ""
+echo -n "Fetch & cache network info now (and keep it refreshed)? (y/n) [y]: "
+read -r cache_confirm
+cache_confirm=${cache_confirm:-y}
 
-# if [ "$cache_confirm" = "y" ] || [ "$cache_confirm" = "Y" ]; then
-# 	NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
-# 	NETWORK_INFO_TMP="/tmp/network-info.json"
-# 	NETWORK_INFO_DEST="/etc/nodogsplash/htdocs/network-info.json"
+if [ "$cache_confirm" = "y" ] || [ "$cache_confirm" = "Y" ]; then
+	NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
+	NETWORK_INFO_TMP="/tmp/network-info.json"
+	NETWORK_INFO_DEST="/etc/nodogsplash/htdocs/network-info.json"
 
-# 	print_info "Fetching network info from: $NETWORK_INFO_URL"
+	print_info "Fetching network info from: $NETWORK_INFO_URL"
 
-# 	# Fetch into temp file first
-# 	if $DOWNLOAD_CMD "$NETWORK_INFO_TMP" "$NETWORK_INFO_URL" >/dev/null 2>&1; then
-# 		# Enhanced validation: file exists, non-empty, and looks like valid JSON with success field
-# 		if [ -s "$NETWORK_INFO_TMP" ]; then
-# 			# Check for various JSON success patterns (more flexible)
-# 			if grep -qE '"success"[[:space:]]*:[[:space:]]*(true|"true")' "$NETWORK_INFO_TMP" 2>/dev/null; then
-# 				cp "$NETWORK_INFO_TMP" "$NETWORK_INFO_DEST"
-# 				chmod 644 "$NETWORK_INFO_DEST"
-# 				print_success "Cached network info to: $NETWORK_INFO_DEST"
-# 			elif grep -q '"success":true' "$NETWORK_INFO_TMP" 2>/dev/null; then
-# 				cp "$NETWORK_INFO_TMP" "$NETWORK_INFO_DEST"
-# 				chmod 644 "$NETWORK_INFO_DEST"
-# 				print_success "Cached network info to: $NETWORK_INFO_DEST"
-# 			else
-# 				print_warning "Network info response doesn't look valid; skipping cache write"
-# 				print_info "Response preview: $(head -c 200 "$NETWORK_INFO_TMP" 2>/dev/null)"
-# 			fi
-# 		else
-# 			print_warning "Network info fetch returned empty response"
-# 		fi
-# 		rm -f "$NETWORK_INFO_TMP"
-# 	else
-# 		print_warning "Failed to fetch network info (continuing without it)"
-# 		print_info "URL: $NETWORK_INFO_URL"
-# 	fi
+	# Fetch into temp file first
+	if $DOWNLOAD_CMD "$NETWORK_INFO_TMP" "$NETWORK_INFO_URL" >/dev/null 2>&1; then
+		# Enhanced validation: file exists, non-empty, and looks like valid JSON with success field
+		if [ -s "$NETWORK_INFO_TMP" ]; then
+			# Check for various JSON success patterns (more flexible)
+			if grep -qE '"success"[[:space:]]*:[[:space:]]*(true|"true")' "$NETWORK_INFO_TMP" 2>/dev/null; then
+				cp "$NETWORK_INFO_TMP" "$NETWORK_INFO_DEST"
+				chmod 644 "$NETWORK_INFO_DEST"
+				print_success "Cached network info to: $NETWORK_INFO_DEST"
+			elif grep -q '"success":true' "$NETWORK_INFO_TMP" 2>/dev/null; then
+				cp "$NETWORK_INFO_TMP" "$NETWORK_INFO_DEST"
+				chmod 644 "$NETWORK_INFO_DEST"
+				print_success "Cached network info to: $NETWORK_INFO_DEST"
+			else
+				print_warning "Network info response doesn't look valid; skipping cache write"
+				print_info "Response preview: $(head -c 200 "$NETWORK_INFO_TMP" 2>/dev/null)"
+			fi
+		else
+			print_warning "Network info fetch returned empty response"
+		fi
+		rm -f "$NETWORK_INFO_TMP"
+	else
+		print_warning "Failed to fetch network info (continuing without it)"
+		print_info "URL: $NETWORK_INFO_URL"
+	fi
 
-# 	# Create updater script for periodic refresh
-# 	print_info "Creating network info refresh script..."
-# 	cat >/etc/zaanet/update-network-info.sh <<'EOF'
-# #!/bin/sh
-# set -e
+	# Create updater script for periodic refresh
+	print_info "Creating network info refresh script..."
+	cat >/etc/zaanet/update-network-info.sh <<'EOF'
+#!/bin/sh
+set -e
 
-# # Load router config
-# if [ -f /etc/zaanet/config ]; then
-#   . /etc/zaanet/config
-# else
-#   exit 0
-# fi
+# Load router config
+if [ -f /etc/zaanet/config ]; then
+  . /etc/zaanet/config
+else
+  exit 0
+fi
 
-# NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
-# TMP_FILE="/tmp/network-info.json"
-# DEST_FILE="/etc/nodogsplash/htdocs/network-info.json"
+NETWORK_INFO_URL="${MAIN_SERVER}/api/v1/portal/network/${CONTRACT_ID}"
+TMP_FILE="/tmp/network-info.json"
+DEST_FILE="/etc/nodogsplash/htdocs/network-info.json"
 
-# # Determine download command
-# if command -v wget >/dev/null 2>&1; then
-#   wget -q -O "$TMP_FILE" "$NETWORK_INFO_URL" >/dev/null 2>&1 || exit 0
-# elif command -v curl >/dev/null 2>&1; then
-#   curl -s -L -o "$TMP_FILE" "$NETWORK_INFO_URL" >/dev/null 2>&1 || exit 0
-# else
-#   exit 0
-# fi
+# Determine download command
+if command -v wget >/dev/null 2>&1; then
+  wget -q -O "$TMP_FILE" "$NETWORK_INFO_URL" >/dev/null 2>&1 || exit 0
+elif command -v curl >/dev/null 2>&1; then
+  curl -s -L -o "$TMP_FILE" "$NETWORK_INFO_URL" >/dev/null 2>&1 || exit 0
+else
+  exit 0
+fi
 
-# # Only overwrite if response looks valid (flexible JSON check)
-# if [ -s "$TMP_FILE" ]; then
-#   if grep -qE '"success"[[:space:]]*:[[:space:]]*(true|"true")' "$TMP_FILE" 2>/dev/null; then
-#     cp "$TMP_FILE" "$DEST_FILE"
-#     chmod 644 "$DEST_FILE"
-#   elif grep -q '"success":true' "$TMP_FILE" 2>/dev/null; then
-#     cp "$TMP_FILE" "$DEST_FILE"
-#     chmod 644 "$DEST_FILE"
-#   fi
-# fi
+# Only overwrite if response looks valid (flexible JSON check)
+if [ -s "$TMP_FILE" ]; then
+  if grep -qE '"success"[[:space:]]*:[[:space:]]*(true|"true")' "$TMP_FILE" 2>/dev/null; then
+    cp "$TMP_FILE" "$DEST_FILE"
+    chmod 644 "$DEST_FILE"
+  elif grep -q '"success":true' "$TMP_FILE" 2>/dev/null; then
+    cp "$TMP_FILE" "$DEST_FILE"
+    chmod 644 "$DEST_FILE"
+  fi
+fi
 
-# # Cleanup
-# rm -f "$TMP_FILE"
-# EOF
+# Cleanup
+rm -f "$TMP_FILE"
+EOF
 
-# 	chmod 755 /etc/zaanet/update-network-info.sh
-# 	print_success "Created: /etc/zaanet/update-network-info.sh"
+	chmod 755 /etc/zaanet/update-network-info.sh
+	print_success "Created: /etc/zaanet/update-network-info.sh"
 
-# 	# Install cron job (every 30 minutes) - with deduplication
-# 	print_info "Installing cron job (every 30 minutes)..."
-# 	mkdir -p /etc/crontabs
-# 	touch /etc/crontabs/root
+	# Install cron job (every 30 minutes) - with deduplication
+	print_info "Installing cron job (every 30 minutes)..."
+	mkdir -p /etc/crontabs
+	touch /etc/crontabs/root
 
-# 	# Remove any previous entry for this script, then append (atomic update)
-# 	CRON_ENTRY="*/30 * * * * /etc/zaanet/update-network-info.sh >/dev/null 2>&1"
-# 	grep -v "/etc/zaanet/update-network-info.sh" /etc/crontabs/root >/tmp/root.cron.tmp 2>/dev/null || true
-# 	echo "$CRON_ENTRY" >>/tmp/root.cron.tmp
-# 	mv /tmp/root.cron.tmp /etc/crontabs/root
-# 	chmod 600 /etc/crontabs/root
+	# Remove any previous entry for this script, then append (atomic update)
+	CRON_ENTRY="*/30 * * * * /etc/zaanet/update-network-info.sh >/dev/null 2>&1"
+	grep -v "/etc/zaanet/update-network-info.sh" /etc/crontabs/root >/tmp/root.cron.tmp 2>/dev/null || true
+	echo "$CRON_ENTRY" >>/tmp/root.cron.tmp
+	mv /tmp/root.cron.tmp /etc/crontabs/root
+	chmod 600 /etc/crontabs/root
 
-# 	# Ensure cron is enabled and running (OpenWrt)
-# 	/etc/init.d/cron enable >/dev/null 2>&1 || true
-# 	/etc/init.d/cron restart >/dev/null 2>&1 || true
-# 	print_success "Cron refresh enabled"
-# else
-# 	print_warning "Skipped network info caching"
-# 	print_info "The splash page will hide network details if /network-info.json is missing."
-# fi
+	# Ensure cron is enabled and running (OpenWrt)
+	/etc/init.d/cron enable >/dev/null 2>&1 || true
+	/etc/init.d/cron restart >/dev/null 2>&1 || true
+	print_success "Cron refresh enabled"
+else
+	print_warning "Skipped network info caching"
+	print_info "The splash page will hide network details if /network-info.json is missing."
+fi
 
 # Step 12.5: Setup Metrics Collection (Traffic Stats from NoDogSplash)
-# print_header "Step 12.5: Configuring Metrics Collection"
+print_header "Step 12.5: Configuring Metrics Collection"
 
-# echo "ZaaNet can collect real-time traffic stats (data usage) from connected users."
-# echo "This data is used for:"
-# echo "  - Session page analytics (download/upload stats)"
-# echo "  - Admin dashboard metrics"
-# echo "  - Usage-based billing (if enabled)"
-# echo ""
-# echo -n "Enable metrics collection? (y/n) [y]: "
-# read -r metrics_confirm
-# metrics_confirm=${metrics_confirm:-y}
+echo "ZaaNet can collect real-time traffic stats (data usage) from connected users."
+echo "This data is used for:"
+echo "  - Session page analytics (download/upload stats)"
+echo "  - Admin dashboard metrics"
+echo "  - Usage-based billing (if enabled)"
+echo ""
+echo -n "Enable metrics collection? (y/n) [y]: "
+read -r metrics_confirm
+metrics_confirm=${metrics_confirm:-y}
 
-# if [ "$metrics_confirm" = "y" ] || [ "$metrics_confirm" = "Y" ]; then
-# 	print_info "Deploying metrics collection script..."
+if [ "$metrics_confirm" = "y" ] || [ "$metrics_confirm" = "Y" ]; then
+	print_info "Deploying metrics collection script..."
 
-# 	# Copy the pre-built metrics script
-# 	if [ -f "$PROJECT_DIR/collect-metrics.sh" ]; then
-# 		if cp "$PROJECT_DIR/collect-metrics.sh" /etc/zaanet/collect-metrics.sh; then
-# 			chmod 755 /etc/zaanet/collect-metrics.sh
-# 			print_success "Deployed: /etc/zaanet/collect-metrics.sh"
+	# Copy the pre-built metrics script
+	if [ -f "$PROJECT_DIR/collect-metrics.sh" ]; then
+		if cp "$PROJECT_DIR/collect-metrics.sh" /etc/zaanet/collect-metrics.sh; then
+			chmod 755 /etc/zaanet/collect-metrics.sh
+			print_success "Deployed: /etc/zaanet/collect-metrics.sh"
 
-# 			# Install cron job (every 1 minute) - with deduplication
-# 			print_info "Installing metrics collection cron job (every 60 seconds)..."
-# 			mkdir -p /etc/crontabs
-# 			touch /etc/crontabs/root
+			# Install cron job (every 1 minute) - with deduplication
+			print_info "Installing metrics collection cron job (every 60 seconds)..."
+			mkdir -p /etc/crontabs
+			touch /etc/crontabs/root
 
-# 			# Remove any previous entry for this script, then append (atomic update)
-# 			CRON_ENTRY="* * * * * /etc/zaanet/collect-metrics.sh >/dev/null 2>&1"
-# 			grep -v "/etc/zaanet/collect-metrics.sh" /etc/crontabs/root >/tmp/root.cron.tmp 2>/dev/null || true
-# 			echo "$CRON_ENTRY" >>/tmp/root.cron.tmp
-# 			mv /tmp/root.cron.tmp /etc/crontabs/root
-# 			chmod 600 /etc/crontabs/root
+			# Remove any previous entry for this script, then append (atomic update)
+			CRON_ENTRY="* * * * * /etc/zaanet/collect-metrics.sh >/dev/null 2>&1"
+			grep -v "/etc/zaanet/collect-metrics.sh" /etc/crontabs/root >/tmp/root.cron.tmp 2>/dev/null || true
+			echo "$CRON_ENTRY" >>/tmp/root.cron.tmp
+			mv /tmp/root.cron.tmp /etc/crontabs/root
+			chmod 600 /etc/crontabs/root
 
-# 			# Ensure cron is enabled and running
-# 			/etc/init.d/cron enable >/dev/null 2>&1 || true
-# 			/etc/init.d/cron restart >/dev/null 2>&1 || true
-# 			print_success "Metrics collection enabled (runs every 60 seconds)"
-# 			print_info "Script: /etc/zaanet/collect-metrics.sh"
-# 		else
-# 			print_warning "Failed to copy collect-metrics.sh"
-# 			metrics_confirm="n"
-# 		fi
-# 	else
-# 		print_warning "collect-metrics.sh not found in project files, skipping metrics deployment"
-# 		metrics_confirm="n"
-# 	fi
-# else
-# 	print_warning "Skipped metrics collection"
-# 	print_info "Session analytics will not show real-time data usage"
-# fi
+			# Ensure cron is enabled and running
+			/etc/init.d/cron enable >/dev/null 2>&1 || true
+			/etc/init.d/cron restart >/dev/null 2>&1 || true
+			print_success "Metrics collection enabled (runs every 60 seconds)"
+			print_info "Script: /etc/zaanet/collect-metrics.sh"
+		else
+			print_warning "Failed to copy collect-metrics.sh"
+			metrics_confirm="n"
+		fi
+	else
+		print_warning "collect-metrics.sh not found in project files, skipping metrics deployment"
+		metrics_confirm="n"
+	fi
+else
+	print_warning "Skipped metrics collection"
+	print_info "Session analytics will not show real-time data usage"
+fi
 
 # Step 13: Configure nodogsplash
 print_header "Step 13: Configuring Nodogsplash"
@@ -984,18 +984,18 @@ print_header "Step 13: Configuring Nodogsplash"
 print_warning "IMPORTANT: Ensure you are connected via SSH (not WiFi) before continuing"
 print_info "WiFi connectivity may be temporarily interrupted during configuration"
 echo ""
-# read -rp "Press Enter to continue (or Ctrl+C to cancel if not ready)..."
+read -rp "Press Enter to continue (or Ctrl+C to cancel if not ready)..."
 
 # Hard reset Nodogsplash config for v5/v6 compatibility (BEFORE deploying files)
 print_info "Resetting Nodogsplash config to default (removes legacy/invalid options)..."
 /etc/init.d/nodogsplash stop >/dev/null 2>&1 || true
 
-# if [ -f /etc/config/nodogsplash ]; then
-# 	NODOGSPLASH_BACKUP="/etc/config/nodogsplash.backup.$(date +%Y%m%d-%H%M%S)"
-# 	cp /etc/config/nodogsplash "$NODOGSPLASH_BACKUP"
-# 	print_info "Backed up nodogsplash configuration to: $NODOGSPLASH_BACKUP"
-# 	rm -f /etc/config/nodogsplash
-# fi
+if [ -f /etc/config/nodogsplash ]; then
+	NODOGSPLASH_BACKUP="/etc/config/nodogsplash.backup.$(date +%Y%m%d-%H%M%S)"
+	cp /etc/config/nodogsplash "$NODOGSPLASH_BACKUP"
+	print_info "Backed up nodogsplash configuration to: $NODOGSPLASH_BACKUP"
+	rm -f /etc/config/nodogsplash
+fi
 
 # NOTE: Removed --force-reinstall to avoid overwriting deployed files
 # The package is already installed from Step 6
@@ -1070,25 +1070,25 @@ print_success "Router access rules configured"
 
 # Allow ZaaNet API during captive phase (CRITICAL)
 # Step 13.75: Resolve ZaaNet API domain and update Nodogsplash
-# print_header "Step 13.75: Resolving ZaaNet API domain for Nodogsplash"
+print_header "Step 13.75: Resolving ZaaNet API domain for Nodogsplash"
 
 # Resolve api.zaanet.xyz to IP
-# API_DOMAIN="api.zaanet.xyz"
-# API_IP=$(nslookup "$API_DOMAIN" 2>/dev/null | awk '/^Address: / { print $2 }' | head -n1)
+API_DOMAIN="api.zaanet.xyz"
+API_IP=$(nslookup "$API_DOMAIN" 2>/dev/null | awk '/^Address: / { print $2 }' | head -n1)
 
-# if [ -z "$API_IP" ]; then
-# 	print_warning "Failed to resolve $API_DOMAIN, skipping preauth IP update"
-# else
-# 	print_info "Resolved $API_DOMAIN to IP: $API_IP"
+if [ -z "$API_IP" ]; then
+	print_warning "Failed to resolve $API_DOMAIN, skipping preauth IP update"
+else
+	print_info "Resolved $API_DOMAIN to IP: $API_IP"
 
-# 	# Remove previous entry if exists (using proper del_list syntax)
-# 	uci -q del_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP" 2>/dev/null || true
+	# Remove previous entry if exists (using proper del_list syntax)
+	uci -q del_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP" 2>/dev/null || true
 
-# 	# Add preauth rules with resolved IP
-# 	uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP" 2>/dev/null || print_warning "Failed to add ZaaNet API pre-auth rule"
-# 	print_success "Updated Nodogsplash pre-auth rule for ZaaNet API"
+	# Add preauth rules with resolved IP
+	uci add_list nodogsplash.@nodogsplash[0].preauthenticated_users="allow tcp port 443 to $API_IP" 2>/dev/null || print_warning "Failed to add ZaaNet API pre-auth rule"
+	print_success "Updated Nodogsplash pre-auth rule for ZaaNet API"
 
-# fi
+fi
 
 # Step 13.8: Commit Nodogsplash Configuration
 print_header "Step 13.8: Committing Nodogsplash Configuration"
@@ -1120,20 +1120,20 @@ print_info "This will configure an open WiFi network (no password)"
 print_info "The captive portal will handle authentication"
 echo "" # Extra validation: test if portal responds
 
-# sleep 2
-# if command -v curl >/dev/null 2>&1; then
-# 	if curl -s http://127.0.0.1:2050/splash.html | grep -q "ZaaNet\|splash" 2>/dev/null; then
-# 		print_success "Splash page is being served correctly"
-# 	else
-# 		print_warning "Splash page may not be serving (test failed)"
-# 	fi
-# elif command -v wget >/dev/null 2>&1; then
-# 	if wget -q -O - http://127.0.0.1:2050/splash.html | grep -q "ZaaNet\|splash" 2>/dev/null; then
-# 		print_success "Splash page is being served correctly"
-# 	else
-# 		print_warning "Splash page may not be serving (test failed)"
-# 	fi
-# fi
+sleep 2
+if command -v curl >/dev/null 2>&1; then
+	if curl -s http://127.0.0.1:2050/splash.html | grep -q "ZaaNet\|splash" 2>/dev/null; then
+		print_success "Splash page is being served correctly"
+	else
+		print_warning "Splash page may not be serving (test failed)"
+	fi
+elif command -v wget >/dev/null 2>&1; then
+	if wget -q -O - http://127.0.0.1:2050/splash.html | grep -q "ZaaNet\|splash" 2>/dev/null; then
+		print_success "Splash page is being served correctly"
+	else
+		print_warning "Splash page may not be serving (test failed)"
+	fi
+fi
 
 echo -n "Continue with WiFi configuration? (y/n): "
 read -r confirm
@@ -1292,57 +1292,57 @@ else
 fi
 
 # Step 17: Create installation log
-# cat >/etc/zaanet/installation.log <<EOF
-# ZaaNet Installation Log
-# =======================
+cat >/etc/zaanet/installation.log <<EOF
+ZaaNet Installation Log
+=======================
 
-# Installation Date: $(date)
-# Script Version: 1.4.1 (GitHub Download - Fixed)
+Installation Date: $(date)
+Script Version: 1.4.1 (GitHub Download - Fixed)
 
-# GitHub Repository:
-# ------------------
-# Repository: $GITHUB_REPO
-# Branch: $GITHUB_BRANCH
-# Base URL: $GITHUB_RAW_BASE
+GitHub Repository:
+------------------
+Repository: $GITHUB_REPO
+Branch: $GITHUB_BRANCH
+Base URL: $GITHUB_RAW_BASE
 
-# Configuration:
-# --------------
-# Router ID: $ROUTER_ID
-# Contract ID: $CONTRACT_ID
-# Main Server: $MAIN_SERVER
-# WiFi SSID: $WIFI_SSID
-# Admin MAC: ${ADMIN_MAC:-Not configured}
+Configuration:
+--------------
+Router ID: $ROUTER_ID
+Contract ID: $CONTRACT_ID
+Main Server: $MAIN_SERVER
+WiFi SSID: $WIFI_SSID
+Admin MAC: ${ADMIN_MAC:-Not configured}
 
-# System Information:
-# -------------------
-# OpenWrt Version: $(cat /etc/openwrt_release 2>/dev/null | grep DISTRIB_DESCRIPTION | cut -d"'" -f2 || echo "Unknown")
-# Nodogsplash Version: $(opkg list-installed 2>/dev/null | grep nodogsplash | awk '{print $3}' || echo "Unknown")
-# Available Space: ${AVAILABLE_MB}MB
+System Information:
+-------------------
+OpenWrt Version: $(cat /etc/openwrt_release 2>/dev/null | grep DISTRIB_DESCRIPTION | cut -d"'" -f2 || echo "Unknown")
+Nodogsplash Version: $(opkg list-installed 2>/dev/null | grep nodogsplash | awk '{print $3}' || echo "Unknown")
+Available Space: ${AVAILABLE_MB}MB
 
-# Deployed Files:
-# ---------------
-# $(find /etc/nodogsplash/htdocs/ -maxdepth 1 -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -exec ls -lh {} \; 2>/dev/null | awk '{print $9, $5}' || echo "No files found")
+Deployed Files:
+---------------
+$(find /etc/nodogsplash/htdocs/ -maxdepth 1 -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -exec ls -lh {} \; 2>/dev/null | awk '{print $9, $5}' || echo "No files found")
 
-# Backup Locations:
-# -----------------
-# Nodogsplash Config: ${NODOGSPLASH_BACKUP:-None}
-# Wireless Config: ${WIRELESS_BACKUP:-None}
-# Htdocs Directory: ${BACKUP_DIR:-None}
+Backup Locations:
+-----------------
+Nodogsplash Config: ${NODOGSPLASH_BACKUP:-None}
+Wireless Config: ${WIRELESS_BACKUP:-None}
+Htdocs Directory: ${BACKUP_DIR:-None}
 
-# Status:
-# -------
-# Installation completed.
-# Nodogsplash service: $(if /etc/init.d/nodogsplash status 2>/dev/null | grep -q "running"; then echo "running"; else echo "stopped or error"; fi)
+Status:
+-------
+Installation completed.
+Nodogsplash service: $(if /etc/init.d/nodogsplash status 2>/dev/null | grep -q "running"; then echo "running"; else echo "stopped or error"; fi)
 
-# Notes:
-# ------
-# - All backups are timestamped and preserved
-# - Check logs with: logread | grep nodogsplash
-# - View this log: cat /etc/zaanet/installation.log
-# EOF
+Notes:
+------
+- All backups are timestamped and preserved
+- Check logs with: logread | grep nodogsplash
+- View this log: cat /etc/zaanet/installation.log
+EOF
 
-# chmod 644 /etc/zaanet/installation.log
-# print_success "Installation log saved: /etc/zaanet/installation.log"
+chmod 644 /etc/zaanet/installation.log
+print_success "Installation log saved: /etc/zaanet/installation.log"
 
 # Final success message
 print_header "Installation Complete!"
