@@ -380,6 +380,13 @@ echo ""
 # Step 8: Collect user configuration
 print_header "Step 8: Configuration Information"
 
+# Initialize variables with defaults to prevent unset variable errors
+WIFI_SSID="ZaaNet"
+NODOGSPLASH_BACKUP=""
+WIRELESS_BACKUP=""
+BACKUP_DIR=""
+ADMIN_MAC=""
+
 echo "Please provide your ZaaNet credentials."
 echo ""
 
@@ -613,10 +620,10 @@ CONTRACT_ID="$CONTRACT_ID"
 MAIN_SERVER="$MAIN_SERVER"
 
 # ZaaNet secret key (keep secure!)
-# ZAANET_SECRET="$ZAANET_SECRET"
+# ZAANET_SECRET is not configured in this version
 
 # WiFi SSID
-# WIFI_SSID="$WIFI_SSID"
+# WIFI_SSID is configured separately
 EOF
 
 chmod 600 /etc/zaanet/config
@@ -1101,15 +1108,15 @@ if uci commit nodogsplash; then
 	if [ -n "$ADMIN_MAC" ]; then
 		print_success "Admin device ($ADMIN_MAC) has full access"
 	fi
-else
-	print_error "Failed to commit nodogsplash configuration"
-	if [ -f "$NODOGSPLASH_BACKUP" ]; then
-		print_info "Attempting to restore backup..."
-		cp "$NODOGSPLASH_BACKUP" /etc/config/nodogsplash
-		print_warning "Configuration restored from backup: $NODOGSPLASH_BACKUP"
+	else
+		print_error "Failed to commit nodogsplash configuration"
+		if [ -n "$NODOGSPLASH_BACKUP" ] && [ -f "$NODOGSPLASH_BACKUP" ]; then
+			print_info "Attempting to restore backup..."
+			cp "$NODOGSPLASH_BACKUP" /etc/config/nodogsplash
+			print_warning "Configuration restored from backup: $NODOGSPLASH_BACKUP"
+		fi
+		print_warning "You may need to configure nodogsplash manually"
 	fi
-	print_warning "You may need to configure nodogsplash manually"
-fi
 
 # Step 14: Configure WiFi
 print_header "Step 14: Configuring WiFi Network"
@@ -1375,14 +1382,20 @@ find /etc/nodogsplash/htdocs/ -maxdepth 1 -type f \( -name '*.html' -o -name '*.
 echo ""
 echo "BACKUP LOCATIONS:"
 echo "-----------------"
-if [ -n "$NODOGSPLASH_BACKUP" ]; then
+if [ -n "${NODOGSPLASH_BACKUP:-}" ]; then
 	echo "Nodogsplash: $NODOGSPLASH_BACKUP"
+else
+	echo "Nodogsplash: Not backed up"
 fi
-if [ -n "$WIRELESS_BACKUP" ]; then
+if [ -n "${WIRELESS_BACKUP:-}" ]; then
 	echo "Wireless:    $WIRELESS_BACKUP"
+else
+	echo "Wireless:    Not backed up"
 fi
-if [ -n "$BACKUP_DIR" ]; then
+if [ -n "${BACKUP_DIR:-}" ]; then
 	echo "Htdocs:      $BACKUP_DIR"
+else
+	echo "Htdocs:      Not backed up"
 fi
 echo ""
 echo "TESTING THE CAPTIVE PORTAL:"
@@ -1416,11 +1429,15 @@ echo "  3. Check logs: logread | grep nodogsplash"
 echo "  4. Verify files exist: ls -la /etc/nodogsplash/htdocs/"
 echo ""
 echo "To restore from backup (if needed):"
-if [ -n "$NODOGSPLASH_BACKUP" ]; then
+if [ -n "${NODOGSPLASH_BACKUP:-}" ]; then
 	echo "  cp \"$NODOGSPLASH_BACKUP\" /etc/config/nodogsplash"
+else
+	echo "  (No nodogsplash backup available)"
 fi
-if [ -n "$WIRELESS_BACKUP" ]; then
+if [ -n "${WIRELESS_BACKUP:-}" ]; then
 	echo "  cp \"$WIRELESS_BACKUP\" /etc/config/wireless"
+else
+	echo "  (No wireless config backup available)"
 fi
 echo ""
 echo "SUPPORT:"
